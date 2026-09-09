@@ -828,13 +828,34 @@ app.delete('/api/deudas/:id', authenticateToken, authorizeMaster, async (req, re
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==================== PAGOS PENDIENTES (MASTER) ====================
 app.get('/api/pagos/pendientes', authenticateToken, authorizeMaster, async (req, res) => {
   try {
-    const rows = await db.query(`
-      SELECT p.*, pr.nombre as propietario_nombre, pr.apartamento
-      FROM pagos p JOIN propietarios pr ON p.propietario_id = pr.id
-      WHERE p.estado = 'pendiente' ORDER BY p.fecha_registro DESC
-    `);
+    let sql;
+    if (DB_TYPE === 'postgresql') {
+      sql = `
+        SELECT p.id, p.propietario_id,
+               to_char(p.fecha_pago, 'DD/MM/YYYY') as fecha_pago,
+               p.monto_bs, p.tasa_bcv, p.monto_usd, p.referencia, p.banco, p.estado,
+               to_char(p.fecha_verificacion, 'DD/MM/YYYY') as fecha_verificacion,
+               pr.nombre as propietario_nombre, pr.apartamento
+        FROM pagos p JOIN propietarios pr ON p.propietario_id = pr.id
+        WHERE p.estado = 'pendiente' 
+        ORDER BY p.fecha_registro DESC
+      `;
+    } else {
+      sql = `
+        SELECT p.id, p.propietario_id,
+               DATE_FORMAT(p.fecha_pago, '%d/%m/%Y') as fecha_pago,
+               p.monto_bs, p.tasa_bcv, p.monto_usd, p.referencia, p.banco, p.estado,
+               DATE_FORMAT(p.fecha_verificacion, '%d/%m/%Y') as fecha_verificacion,
+               pr.nombre as propietario_nombre, pr.apartamento
+        FROM pagos p JOIN propietarios pr ON p.propietario_id = pr.id
+        WHERE p.estado = 'pendiente' 
+        ORDER BY p.fecha_registro DESC
+      `;
+    }
+    const rows = await db.query(sql);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -847,7 +868,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     if (client.beginTransaction) await client.beginTransaction();
     else await client.query('BEGIN');
 
-    // 1. Obtener el pago
     const pagoResult = await client.query(
       `SELECT * FROM pagos WHERE id = $1`,
       [pagoId]
@@ -856,7 +876,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     if (!pago) throw new Error('Pago no encontrado');
     if (pago.estado !== 'pendiente') throw new Error('Ya verificado');
 
-    // 2. Calcular monto en USD
     let montoUSD = pago.monto_usd;
     if (!montoUSD || montoUSD <= 0) {
       if (!pago.tasa_bcv || pago.tasa_bcv <= 0) throw new Error('Tasa BCV inválida');
@@ -864,7 +883,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     }
     if (montoUSD <= 0) throw new Error('Monto en USD no válido');
 
-    // 3. Obtener deudas pendientes del propietario
     const deudasResult = await client.query(
       `SELECT * FROM deudas 
        WHERE propietario_id = $1 AND pagado = false 
@@ -873,13 +891,11 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     );
     const deudas = deudasResult.rows || deudasResult;
 
-    // 4. Distribuir el pago
     let restante = montoUSD;
     for (const deuda of deudas) {
       if (restante <= 0) break;
 
       if (restante >= deuda.monto_usd) {
-        // Paga toda la deuda
         await client.query(
           `UPDATE deudas SET 
              pagado = true,
@@ -891,7 +907,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
         );
         restante -= deuda.monto_usd;
       } else {
-        // Pago parcial
         await client.query(
           `UPDATE deudas SET 
              monto_usd = $1,
@@ -905,7 +920,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
       }
     }
 
-    // 5. Si sobra, actualizar saldo a favor
     if (restante > 0) {
       await client.query(
         `UPDATE propietarios SET saldo_favor = saldo_favor + $1 WHERE id = $2`,
@@ -913,7 +927,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
       );
     }
 
-    // 6. Marcar pago como verificado
     await client.query(
       `UPDATE pagos SET 
          estado = 'verificado',
@@ -1016,14 +1029,36 @@ app.get('/api/propietarios/:id/deudas', authenticateToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==================== PAGOS DE PROPIETARIO (CORREGIDO PARA FECHAS) ====================
 app.get('/api/propietarios/:id/pagos', authenticateToken, async (req, res) => {
   const id = parseInt(req.params.id);
   if (req.user.rol !== 'master' && req.user.propietario_id != id) {
     return res.status(403).json({ error: 'No autorizado' });
   }
   try {
-    const p1 = placeholder(1);
-    const rows = await db.query(`SELECT * FROM pagos WHERE propietario_id = ${p1} ORDER BY fecha_registro DESC`, [id]);
+    let sql;
+    if (DB_TYPE === 'postgresql') {
+      sql = `
+        SELECT id, propietario_id,
+               to_char(fecha_pago, 'DD/MM/YYYY') as fecha_pago,
+               monto_bs, tasa_bcv, monto_usd, referencia, banco, estado,
+               to_char(fecha_verificacion, 'DD/MM/YYYY') as fecha_verificacion
+        FROM pagos 
+        WHERE propietario_id = $1 
+        ORDER BY fecha_registro DESC
+      `;
+    } else {
+      sql = `
+        SELECT id, propietario_id,
+               DATE_FORMAT(fecha_pago, '%d/%m/%Y') as fecha_pago,
+               monto_bs, tasa_bcv, monto_usd, referencia, banco, estado,
+               DATE_FORMAT(fecha_verificacion, '%d/%m/%Y') as fecha_verificacion
+        FROM pagos 
+        WHERE propietario_id = ? 
+        ORDER BY fecha_registro DESC
+      `;
+    }
+    const rows = await db.query(sql, [id]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
