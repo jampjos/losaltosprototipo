@@ -1,4 +1,4 @@
-// public/master.js - Panel Master con pagos verificados, confirmaciones y sin edición de recibos
+// public/master.js - Panel Master con pagos verificados, confirmaciones y fechas corregidas
 console.log('🖥️ Master UI cargada');
 
 const API_BASE = '/api';
@@ -12,7 +12,7 @@ let grupoSeleccionado = null;
 let propiedadSeleccionada = null;
 let currentTasaBCV = null;
 let currentFechaTasa = null;
-let editandoReciboId = null; // Aunque ya no se usa, se mantiene para compatibilidad
+let editandoReciboId = null;
 
 // ---------- Configuración predeterminada de alícuotas ----------
 let alicuotasPredeterminadas = [];
@@ -20,14 +20,14 @@ let alicuotasPredeterminadas = [];
 // ---------- Helpers ----------
 function formatearFecha(fechaString) {
   if (!fechaString) return '—';
-  // Si viene en formato ISO (YYYY-MM-DD), la tratamos como fecha local
+  // Si viene como YYYY-MM-DD, la formateamos manualmente sin usar Date
   if (/^\d{4}-\d{2}-\d{2}$/.test(fechaString)) {
-    const [year, month, day] = fechaString.split('-').map(Number);
-    const fecha = new Date(year, month - 1, day);
-    return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const [year, month, day] = fechaString.split('-');
+    return `${day}/${month}/${year}`;
   }
-  // Para otros formatos (incluyendo timestamps con hora)
+  // Para otros formatos (timestamps con hora)
   const fecha = new Date(fechaString);
+  if (isNaN(fecha)) return '—';
   return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
