@@ -20,6 +20,13 @@ let alicuotasPredeterminadas = [];
 // ---------- Helpers ----------
 function formatearFecha(fechaString) {
   if (!fechaString) return '—';
+  // Si viene en formato ISO (YYYY-MM-DD), la tratamos como fecha local
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fechaString)) {
+    const [year, month, day] = fechaString.split('-').map(Number);
+    const fecha = new Date(year, month - 1, day);
+    return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  }
+  // Para otros formatos (incluyendo timestamps con hora)
   const fecha = new Date(fechaString);
   return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
@@ -65,14 +72,10 @@ const api = {
   getPropietariosConSaldo: () => fetchAPI('/propietarios/saldo'),
   getPropietarioById: (id) => fetchAPI(`/propietarios/${id}`),
   addRecibo: (recibo) => fetchAPI('/recibos', 'POST', recibo),
-  // updateRecibo ya no se usa (edición deshabilitada)
-  // updateRecibo: (id, recibo) => fetchAPI(`/recibos/${id}`, 'PUT', recibo),
   getRecibos: (grupoId) => fetchAPI('/recibos' + (grupoId ? `?grupoId=${grupoId}` : '')),
   getReciboById: (id) => fetchAPI(`/recibos/${id}`),
   addDeuda: (deuda) => fetchAPI('/deudas', 'POST', deuda),
   getDeudasByPropietario: (propId) => fetchAPI(`/propietarios/${propId}/deudas`),
-  // deleteDeuda ya no se usa
-  // deleteDeuda: (id) => fetchAPI(`/deudas/${id}`, 'DELETE'),
   getPagosPendientes: () => fetchAPI('/pagos/pendientes'),
   verificarPago: (pagoId) => fetchAPI(`/pagos/${pagoId}/verificar`, 'POST'),
   getPagosByPropietario: (propId) => fetchAPI(`/propietarios/${propId}/pagos`),
@@ -660,6 +663,88 @@ document.getElementById('formRecibo')?.addEventListener('submit', async (e) => {
   }
 });
 
+// ==================== FUNCIÓN LIMPIAR MODAL RECIBO ====================
+function limpiarModalRecibo() {
+  document.getElementById('periodoRecibo').value = '';
+  document.getElementById('tasaBCV').value = '';
+  document.getElementById('gastosContainer').innerHTML = '';
+  document.getElementById('ajustesContainer').innerHTML = '';
+  document.getElementById('ajustesEspecificosContainer').innerHTML = '';
+  document.getElementById('gruposAlicuotasContainer').innerHTML = '';
+  document.getElementById('gastosEspecificosContainer').innerHTML = '';
+  document.querySelector('#tablaResumenPropietarios tbody').innerHTML = '';
+  document.getElementById('totalGastosUSD').innerText = '0.00';
+  document.getElementById('totalNetoUSD').innerText = '0.00';
+  document.getElementById('detalleNeto').innerText = '';
+  document.getElementById('fechaTasa').innerText = '';
+  editandoReciboId = null;
+  document.querySelector('#formRecibo button[type="submit"]').textContent = 'Crear Recibo y Deudas';
+}
+
+// ==================== BOTÓN AGREGAR RECIBO ====================
+document.getElementById('btnAgregarRecibo').addEventListener('click', async () => {
+  editandoReciboId = null;
+  limpiarModalRecibo();
+  agregarFilaGasto();
+
+  try {
+    grupos = await api.getGrupos();
+  } catch (err) {
+    console.error('Error cargando grupos:', err);
+  }
+
+  if (alicuotasPredeterminadas.length > 0) {
+    alicuotasPredeterminadas.forEach(item => agregarGrupoAlicuota(item.grupoId, item.porcentaje));
+  } else {
+    agregarGrupoAlicuota();
+  }
+
+  if (!currentTasaBCV) {
+    await obtenerTasaBCV();
+  } else {
+    document.getElementById('tasaBCV').value = currentTasaBCV;
+    if (currentFechaTasa) {
+      document.getElementById('fechaTasa').innerText = `Actualizada: ${new Date(currentFechaTasa).toLocaleDateString('es-ES')}`;
+    }
+  }
+
+  document.getElementById('modalRecibo').style.display = 'block';
+});
+
+// ==================== BOTONES DEL MODAL ====================
+document.getElementById('btnActualizarTasa').addEventListener('click', obtenerTasaBCV);
+document.getElementById('btnAgregarGasto').addEventListener('click', () => agregarFilaGasto());
+document.getElementById('btnAgregarAjuste').addEventListener('click', () => agregarFilaAjuste());
+document.getElementById('btnAgregarGrupoAlicuota').addEventListener('click', () => agregarGrupoAlicuota());
+document.getElementById('btnAgregarGastoEspecifico').addEventListener('click', () => agregarGastoEspecifico());
+document.getElementById('btnAgregarAjusteEspecifico').addEventListener('click', () => agregarFilaAjusteEspecifico());
+
+// ==================== CERRAR MODALES ====================
+document.querySelectorAll('.modal .close').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.modal').style.display = 'none');
+});
+window.addEventListener('click', (e) => {
+  if (e.target.classList.contains('modal')) e.target.style.display = 'none';
+});
+
+// ==================== RECALCULAR AUTOMÁTICAMENTE ====================
+document.addEventListener('change', (e) => {
+  if (e.target.closest('#gruposAlicuotasContainer, #gastosEspecificosContainer, #gastosContainer, #ajustesContainer, #ajustesEspecificosContainer')) {
+    recalcularTodo();
+  }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.closest('#gruposAlicuotasContainer, #gastosEspecificosContainer, #gastosContainer, #ajustesContainer, #ajustesEspecificosContainer')) {
+    recalcularTodo();
+  }
+  if (e.target.id === 'tasaBCV' && !isNaN(parseFloat(e.target.value))) {
+    currentTasaBCV = parseFloat(e.target.value);
+    calcularTotalGastos();
+    actualizarUSDEnGastosEspecificos();
+    recalcularTodo();
+  }
+});
+
 // ==================== MODAL VER RECIBO ====================
 let modalVerRecibo = null;
 function crearModalVerRecibo() {
@@ -715,8 +800,8 @@ function crearModalVerRecibo() {
       <body>
         <div class="recibo">
           <div class="encabezado">
-            <h2>CONJUNTO RESIDENCIAL LA CASONA ETAPA I</h2>
-            <p>RIF: J-50286741-4</p>
+            <h2>CONJUNTO RESIDENCIAL LOS ALTOS I</h2>
+            <p>RIF: J-30388993-0</p>
             <h4>Detalles del Recibo</h4>
           </div>
           ${contenido}
@@ -1093,90 +1178,6 @@ document.getElementById('btnGuardarPredeterminadas').addEventListener('click', (
   alert('Configuración guardada.');
 });
 document.getElementById('btnUsarPredeterminadas').addEventListener('click', aplicarAlícuotasPredeterminadas);
-// ==================== FUNCIÓN LIMPIAR MODAL RECIBO ====================
-function limpiarModalRecibo() {
-  document.getElementById('periodoRecibo').value = '';
-  document.getElementById('tasaBCV').value = '';
-  document.getElementById('gastosContainer').innerHTML = '';
-  document.getElementById('ajustesContainer').innerHTML = '';
-  document.getElementById('ajustesEspecificosContainer').innerHTML = '';
-  document.getElementById('gruposAlicuotasContainer').innerHTML = '';
-  document.getElementById('gastosEspecificosContainer').innerHTML = '';
-  document.querySelector('#tablaResumenPropietarios tbody').innerHTML = '';
-  document.getElementById('totalGastosUSD').innerText = '0.00';
-  document.getElementById('totalNetoUSD').innerText = '0.00';
-  document.getElementById('detalleNeto').innerText = '';
-  document.getElementById('fechaTasa').innerText = '';
-  editandoReciboId = null;
-  document.querySelector('#formRecibo button[type="submit"]').textContent = 'Crear Recibo y Deudas';
-}
-
-// ==================== BOTÓN AGREGAR RECIBO ====================
-document.getElementById('btnAgregarRecibo').addEventListener('click', async () => {
-  editandoReciboId = null;
-  limpiarModalRecibo();
-  agregarFilaGasto(); // agrega una fila de gasto vacía
-
-  // Cargar grupos para las alícuotas
-  try {
-    grupos = await api.getGrupos();
-  } catch (err) {
-    console.error('Error cargando grupos:', err);
-  }
-
-  // Agregar alícuotas predeterminadas o una fila vacía
-  if (alicuotasPredeterminadas.length > 0) {
-    alicuotasPredeterminadas.forEach(item => agregarGrupoAlicuota(item.grupoId, item.porcentaje));
-  } else {
-    agregarGrupoAlicuota();
-  }
-
-  // Tasa BCV
-  if (!currentTasaBCV) {
-    await obtenerTasaBCV();
-  } else {
-    document.getElementById('tasaBCV').value = currentTasaBCV;
-    if (currentFechaTasa) {
-      document.getElementById('fechaTasa').innerText = `Actualizada: ${new Date(currentFechaTasa).toLocaleDateString('es-ES')}`;
-    }
-  }
-
-  document.getElementById('modalRecibo').style.display = 'block';
-});
-
-// ==================== BOTONES DEL MODAL ====================
-document.getElementById('btnActualizarTasa').addEventListener('click', obtenerTasaBCV);
-document.getElementById('btnAgregarGasto').addEventListener('click', () => agregarFilaGasto());
-document.getElementById('btnAgregarAjuste').addEventListener('click', () => agregarFilaAjuste());
-document.getElementById('btnAgregarGrupoAlicuota').addEventListener('click', () => agregarGrupoAlicuota());
-document.getElementById('btnAgregarGastoEspecifico').addEventListener('click', () => agregarGastoEspecifico());
-document.getElementById('btnAgregarAjusteEspecifico').addEventListener('click', () => agregarFilaAjusteEspecifico());
-
-// ==================== CERRAR MODALES ====================
-document.querySelectorAll('.modal .close').forEach(btn => {
-  btn.addEventListener('click', () => btn.closest('.modal').style.display = 'none');
-});
-window.addEventListener('click', (e) => {
-  if (e.target.classList.contains('modal')) e.target.style.display = 'none';
-});
-
-// ==================== RECALCULAR AUTOMÁTICAMENTE ====================
-document.addEventListener('change', (e) => {
-  if (e.target.closest('#gruposAlicuotasContainer, #gastosEspecificosContainer, #gastosContainer, #ajustesContainer, #ajustesEspecificosContainer')) {
-    recalcularTodo();
-  }
-});
-document.addEventListener('input', (e) => {
-  if (e.target.closest('#gruposAlicuotasContainer, #gastosEspecificosContainer, #gastosContainer, #ajustesContainer, #ajustesEspecificosContainer')) {
-    recalcularTodo();
-  }
-  if (e.target.id === 'tasaBCV' && !isNaN(parseFloat(e.target.value))) {
-    currentTasaBCV = parseFloat(e.target.value);
-    calcularTotalGastos();
-    actualizarUSDEnGastosEspecificos();
-    recalcularTodo();
-  }
-});
 
 // ==================== INICIALIZACIÓN ====================
 document.addEventListener('DOMContentLoaded', async () => {
