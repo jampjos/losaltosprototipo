@@ -16,8 +16,6 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 // ==========================================
 // 🔧 CONFIGURACIÓN DE BASE DE DATOS
 // ==========================================
-// ⚠️ RELLENAR ESTOS CAMPOS CON TUS DATOS REALES
-// ==========================================
 
 const DB_TYPE = process.env.DB_TYPE || 'postgresql'; // 'mariadb' o 'postgresql'
 
@@ -84,6 +82,7 @@ if (DB_TYPE === 'postgresql') {
 // Middleware
 const allowedOrigins = [
   FRONTEND_URL,
+  'https://losaltosprototipo.onrender.com',
   'https://condominio-app.onrender.com',
   'http://localhost:3000',
   'http://localhost:5500',
@@ -127,17 +126,27 @@ function authorizeMaster(req, res, next) {
   next();
 }
 
-// Proteger el panel master (solo master)
-app.get('/master.html', authenticateToken, authorizeMaster);
-
-// Proteger el panel de propietario (cualquier autenticado)
-app.get('/propietario.html', authenticateToken);
-
-// Servir archivos estáticos
+// ==========================================
+// ✅ SERVIR ARCHIVOS ESTÁTICOS PRIMERO
+// ==========================================
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Redirección raíz
 app.get('/', (req, res) => res.redirect('/login.html'));
+
+// Proteger el panel master (solo master)
+app.get('/master.html', authenticateToken, authorizeMaster, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'master.html'));
+});
+
+// Proteger el panel de propietario (cualquier autenticado)
+app.get('/propietario.html', authenticateToken, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'propietario.html'));
+});
+
+// ==========================================
+// FIN DE SERVICIO DE ARCHIVOS ESTÁTICOS
+// ==========================================
 
 // Función para obtener tasa BCV
 async function obtenerTasaBCV() {
@@ -269,12 +278,11 @@ async function setupMariaDB() {
     `);
 
     // Crear usuario admin si no existe
-    // ⚠️ CAMBIAR: Modificar las credenciales del usuario admin por seguridad
     const [admin] = await connection.query("SELECT id FROM usuarios WHERE username = 'admin'");
     if (admin.length === 0) {
-      const hash = bcrypt.hashSync('admin123', 10); // ⚠️ CAMBIAR: Cambiar 'admin123' por una contraseña segura
+      const hash = bcrypt.hashSync('admin123', 10);
       await connection.query("INSERT INTO usuarios (username, password, rol) VALUES (?, ?, ?)", ['admin', hash, 'master']);
-      console.log('✅ Usuario master creado: admin / admin123'); // ⚠️ CAMBIAR: Actualizar mensaje
+      console.log('✅ Usuario master creado: admin / admin123');
     }
   } finally {
     connection.release();
@@ -286,7 +294,6 @@ async function setupPostgreSQL() {
   try {
     await client.query('BEGIN');
     
-    // Crear tablas para PostgreSQL
     await client.query(`
       CREATE TABLE IF NOT EXISTS grupos (
         id SERIAL PRIMARY KEY,
@@ -361,13 +368,11 @@ async function setupPostgreSQL() {
       )
     `);
 
-    // Crear usuario admin si no existe
-    // ⚠️ CAMBIAR: Modificar las credenciales del usuario admin por seguridad
     const adminResult = await client.query("SELECT id FROM usuarios WHERE username = 'admin'");
     if (adminResult.rows.length === 0) {
-      const hash = bcrypt.hashSync('admin123', 10); // ⚠️ CAMBIAR: Cambiar 'admin123' por una contraseña segura
+      const hash = bcrypt.hashSync('admin123', 10);
       await client.query("INSERT INTO usuarios (username, password, rol) VALUES ($1, $2, $3)", ['admin', hash, 'master']);
-      console.log('✅ Usuario master creado: admin / admin123'); // ⚠️ CAMBIAR: Actualizar mensaje
+      console.log('✅ Usuario master creado: admin / admin123');
     }
 
     await client.query('COMMIT');
@@ -456,7 +461,6 @@ app.get('/api/recibos/:id', authenticateToken, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Recibo no encontrado' });
     let recibo = rows[0];
     
-    // Parsear campos JSON según el tipo de BD
     const jsonFields = ['gastos_generales', 'alicuotas_grupo', 'gastos_especificos', 'creditos', 'reversos', 'ajustes_especificos'];
     for (const field of jsonFields) {
       if (recibo[field] && typeof recibo[field] === 'string') {
