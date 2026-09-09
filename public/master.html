@@ -99,8 +99,29 @@
       font-weight: bold;
       cursor: pointer;
     }
+    /* Botones de acción en tablas */
     .btn-verificar {
       background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    .btn-verificar:hover {
+      background-color: #218838;
+    }
+    .btn-eliminar {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .btn-eliminar:hover {
+      background-color: #c82333;
     }
     .group-tab {
       display: inline-flex;
@@ -237,7 +258,7 @@
       </table>
     </section>
 
-    <!-- Sección Pagos Pendientes -->
+    <!-- Sección Pagos Pendientes de Verificación -->
     <section>
       <h2>Pagos Pendientes de Verificación</h2>
       <table id="tablaPagos">
@@ -256,7 +277,7 @@
       </table>
     </section>
 
-    <!-- Sección Deudas por Propiedad -->
+    <!-- Sección Pagos Verificados por Propiedad -->
     <section>
       <h2>Pagos Verificados por Propiedad</h2>
       <div id="gruposContainer" style="margin-bottom: 10px;"></div>
@@ -370,8 +391,6 @@
       </form>
     </div>
   </div>
-
-  <!-- Modal para deuda (ELIMINADO - Ya no se usa) -->
 
   <!-- Modal de Configuración de Alícuotas Predeterminadas -->
   <div id="modalConfigPredeterminadas" class="modal">
