@@ -258,17 +258,29 @@
 
     <!-- Sección Deudas por Propiedad -->
     <section>
-      <h2>Deudas por Propiedad (USD)</h2>
+      <h2>Pagos Verificados por Propiedad</h2>
       <div id="gruposContainer" style="margin-bottom: 10px;"></div>
       <div id="propiedadesContainer" style="margin-bottom: 15px;"></div>
       <div id="saldoPropiedad" style="margin-bottom: 15px; padding: 10px; background: #e9ecef; border-radius: 5px;">
         <strong>Saldo Neto de la propiedad:</strong> <span id="saldoNetoPropiedad">---</span>
       </div>
-      <div id="deudasTableContainer" style="display: none;">
-        <button id="btnAgregarDeuda" style="margin-bottom: 10px;">Agregar Deuda</button>
-        <table id="tablaDeudas">
-          <thead><tr><th>Período</th><th>Monto (USD)</th><th>Vencimiento</th><th>Estado</th><th>Fecha Pago</th><th>Referencia</th></tr></thead>
-          <tbody></tbody>
+      <div id="pagosTableContainer" style="display: block;">
+        <table id="tablaPagosPropietario">
+          <thead>
+            <tr>
+              <th>Fecha Pago</th>
+              <th>Banco</th>
+              <th>Monto (Bs)</th>
+              <th>Tasa BCV</th>
+              <th>Monto (USD)</th>
+              <th>Referencia</th>
+              <th>Estado</th>
+              <th>Fecha Verificación</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="8">No hay pagos verificados.</td></tr>
+          </tbody>
         </table>
       </div>
     </section>
@@ -359,20 +371,7 @@
     </div>
   </div>
 
-  <!-- Modal para deuda (solo agregar) -->
-  <div id="modalDeuda" class="modal">
-    <div class="modal-content">
-      <span class="close">&times;</span>
-      <h3 id="modalDeudaTitulo">Agregar Deuda</h3>
-      <form id="formDeuda">
-        <div><label>Propietario:</label><select id="propietarioSelect" required></select></div>
-        <div><label>Período (MM/AAAA):</label><input type="text" id="periodo" placeholder="03/2025" required></div>
-        <div><label>Monto (USD):</label><input type="number" step="0.01" id="montoUSD" required></div>
-        <div><label>Fecha de Vencimiento:</label><input type="date" id="fechaVencimiento"></div>
-        <button type="submit">Guardar</button>
-      </form>
-    </div>
-  </div>
+  <!-- Modal para deuda (ELIMINADO - Ya no se usa) -->
 
   <!-- Modal de Configuración de Alícuotas Predeterminadas -->
   <div id="modalConfigPredeterminadas" class="modal">
