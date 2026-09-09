@@ -184,90 +184,14 @@ async function setupDatabase() {
 async function setupMariaDB() {
   const connection = await pool.getConnection();
   try {
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS grupos (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nombre VARCHAR(255) NOT NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS propietarios (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        apartamento VARCHAR(255) NOT NULL UNIQUE,
-        nombre VARCHAR(255) NOT NULL,
-        telefono VARCHAR(50),
-        email VARCHAR(255),
-        grupo_id INT,
-        saldo_favor FLOAT DEFAULT 0,
-        FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS usuarios (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        rol VARCHAR(50) DEFAULT 'propietario',
-        propietario_id INT,
-        FOREIGN KEY (propietario_id) REFERENCES propietarios(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS deudas (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        propietario_id INT,
-        periodo VARCHAR(7) NOT NULL,
-        monto_usd FLOAT NOT NULL,
-        fecha_vencimiento DATE,
-        pagado TINYINT(1) DEFAULT 0,
-        fecha_pago DATE,
-        referencia_pago VARCHAR(255),
-        original_monto FLOAT,
-        recibo_id INT,
-        porcentaje_alicuota FLOAT,
-        FOREIGN KEY (propietario_id) REFERENCES propietarios(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS pagos (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        propietario_id INT,
-        fecha_pago DATE NOT NULL,
-        monto_bs FLOAT NOT NULL,
-        tasa_bcv FLOAT NOT NULL,
-        monto_usd FLOAT,
-        referencia VARCHAR(255),
-        banco VARCHAR(100),
-        imagen_ruta VARCHAR(500),
-        estado VARCHAR(50) DEFAULT 'pendiente',
-        fecha_verificacion DATETIME,
-        fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (propietario_id) REFERENCES propietarios(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS recibos (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        periodo VARCHAR(7) NOT NULL,
-        monto_usd FLOAT NOT NULL,
-        grupo_id INT,
-        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        gastos_generales JSON,
-        alicuotas_grupo JSON,
-        gastos_especificos JSON,
-        tasa_bcv FLOAT,
-        fecha_tasa DATE,
-        creditos JSON,
-        reversos JSON,
-        ajustes_especificos JSON,
-        FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    `);
+    await connection.query(`CREATE TABLE IF NOT EXISTS grupos (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(255) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await connection.query(`CREATE TABLE IF NOT EXISTS propietarios (id INT AUTO_INCREMENT PRIMARY KEY, apartamento VARCHAR(255) NOT NULL UNIQUE, nombre VARCHAR(255) NOT NULL, telefono VARCHAR(50), email VARCHAR(255), grupo_id INT, saldo_favor FLOAT DEFAULT 0, FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE SET NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await connection.query(`CREATE TABLE IF NOT EXISTS usuarios (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, rol VARCHAR(50) DEFAULT 'propietario', propietario_id INT, FOREIGN KEY (propietario_id) REFERENCES propietarios(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await connection.query(`CREATE TABLE IF NOT EXISTS deudas (id INT AUTO_INCREMENT PRIMARY KEY, propietario_id INT, periodo VARCHAR(7) NOT NULL, monto_usd FLOAT NOT NULL, fecha_vencimiento DATE, pagado TINYINT(1) DEFAULT 0, fecha_pago DATE, referencia_pago VARCHAR(255), original_monto FLOAT, recibo_id INT, porcentaje_alicuota FLOAT, FOREIGN KEY (propietario_id) REFERENCES propietarios(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await connection.query(`CREATE TABLE IF NOT EXISTS pagos (id INT AUTO_INCREMENT PRIMARY KEY, propietario_id INT, fecha_pago DATE NOT NULL, monto_bs FLOAT NOT NULL, tasa_bcv FLOAT NOT NULL, monto_usd FLOAT, referencia VARCHAR(255), banco VARCHAR(100), imagen_ruta VARCHAR(500), estado VARCHAR(50) DEFAULT 'pendiente', fecha_verificacion DATETIME, fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (propietario_id) REFERENCES propietarios(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await connection.query(`CREATE TABLE IF NOT EXISTS recibos (id INT AUTO_INCREMENT PRIMARY KEY, periodo VARCHAR(7) NOT NULL, monto_usd FLOAT NOT NULL, grupo_id INT, fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, gastos_generales JSON, alicuotas_grupo JSON, gastos_especificos JSON, tasa_bcv FLOAT, fecha_tasa DATE, creditos JSON, reversos JSON, ajustes_especificos JSON, FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE SET NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    const [columns] = await connection.query(`
-      SELECT COUNT(*) AS cnt FROM information_schema.columns
-      WHERE table_schema = DATABASE() AND table_name = 'pagos' AND column_name = 'banco'
-    `);
+    const [columns] = await connection.query(`SELECT COUNT(*) AS cnt FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pagos' AND column_name = 'banco'`);
     if (columns[0].cnt === 0) {
       await connection.query(`ALTER TABLE pagos ADD COLUMN banco VARCHAR(100)`);
     }
@@ -287,70 +211,12 @@ async function setupPostgreSQL() {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
-    await client.query(`CREATE TABLE IF NOT EXISTS grupos (
-      id SERIAL PRIMARY KEY,
-      nombre VARCHAR(255) NOT NULL
-    )`);
-    await client.query(`CREATE TABLE IF NOT EXISTS propietarios (
-      id SERIAL PRIMARY KEY,
-      apartamento VARCHAR(255) NOT NULL UNIQUE,
-      nombre VARCHAR(255) NOT NULL,
-      telefono VARCHAR(50),
-      email VARCHAR(255),
-      grupo_id INT REFERENCES grupos(id) ON DELETE SET NULL,
-      saldo_favor FLOAT DEFAULT 0
-    )`);
-    await client.query(`CREATE TABLE IF NOT EXISTS usuarios (
-      id SERIAL PRIMARY KEY,
-      username VARCHAR(255) NOT NULL UNIQUE,
-      password VARCHAR(255) NOT NULL,
-      rol VARCHAR(50) DEFAULT 'propietario',
-      propietario_id INT REFERENCES propietarios(id) ON DELETE CASCADE
-    )`);
-    await client.query(`CREATE TABLE IF NOT EXISTS deudas (
-      id SERIAL PRIMARY KEY,
-      propietario_id INT REFERENCES propietarios(id) ON DELETE CASCADE,
-      periodo VARCHAR(7) NOT NULL,
-      monto_usd FLOAT NOT NULL,
-      fecha_vencimiento DATE,
-      pagado BOOLEAN DEFAULT FALSE,
-      fecha_pago DATE,
-      referencia_pago VARCHAR(255),
-      original_monto FLOAT,
-      recibo_id INT,
-      porcentaje_alicuota FLOAT
-    )`);
-    await client.query(`CREATE TABLE IF NOT EXISTS pagos (
-      id SERIAL PRIMARY KEY,
-      propietario_id INT REFERENCES propietarios(id) ON DELETE CASCADE,
-      fecha_pago DATE NOT NULL,
-      monto_bs FLOAT NOT NULL,
-      tasa_bcv FLOAT NOT NULL,
-      monto_usd FLOAT,
-      referencia VARCHAR(255),
-      banco VARCHAR(100),
-      imagen_ruta VARCHAR(500),
-      estado VARCHAR(50) DEFAULT 'pendiente',
-      fecha_verificacion TIMESTAMP,
-      fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`);
-    await client.query(`CREATE TABLE IF NOT EXISTS recibos (
-      id SERIAL PRIMARY KEY,
-      periodo VARCHAR(7) NOT NULL,
-      monto_usd FLOAT NOT NULL,
-      grupo_id INT REFERENCES grupos(id) ON DELETE SET NULL,
-      fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      gastos_generales JSONB,
-      alicuotas_grupo JSONB,
-      gastos_especificos JSONB,
-      tasa_bcv FLOAT,
-      fecha_tasa DATE,
-      creditos JSONB,
-      reversos JSONB,
-      ajustes_especificos JSONB
-    )`);
-
+    await client.query(`CREATE TABLE IF NOT EXISTS grupos (id SERIAL PRIMARY KEY, nombre VARCHAR(255) NOT NULL)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS propietarios (id SERIAL PRIMARY KEY, apartamento VARCHAR(255) NOT NULL UNIQUE, nombre VARCHAR(255) NOT NULL, telefono VARCHAR(50), email VARCHAR(255), grupo_id INT REFERENCES grupos(id) ON DELETE SET NULL, saldo_favor FLOAT DEFAULT 0)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS usuarios (id SERIAL PRIMARY KEY, username VARCHAR(255) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, rol VARCHAR(50) DEFAULT 'propietario', propietario_id INT REFERENCES propietarios(id) ON DELETE CASCADE)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS deudas (id SERIAL PRIMARY KEY, propietario_id INT REFERENCES propietarios(id) ON DELETE CASCADE, periodo VARCHAR(7) NOT NULL, monto_usd FLOAT NOT NULL, fecha_vencimiento DATE, pagado BOOLEAN DEFAULT FALSE, fecha_pago DATE, referencia_pago VARCHAR(255), original_monto FLOAT, recibo_id INT, porcentaje_alicuota FLOAT)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS pagos (id SERIAL PRIMARY KEY, propietario_id INT REFERENCES propietarios(id) ON DELETE CASCADE, fecha_pago DATE NOT NULL, monto_bs FLOAT NOT NULL, tasa_bcv FLOAT NOT NULL, monto_usd FLOAT, referencia VARCHAR(255), banco VARCHAR(100), imagen_ruta VARCHAR(500), estado VARCHAR(50) DEFAULT 'pendiente', fecha_verificacion TIMESTAMP, fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS recibos (id SERIAL PRIMARY KEY, periodo VARCHAR(7) NOT NULL, monto_usd FLOAT NOT NULL, grupo_id INT REFERENCES grupos(id) ON DELETE SET NULL, fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, gastos_generales JSONB, alicuotas_grupo JSONB, gastos_especificos JSONB, tasa_bcv FLOAT, fecha_tasa DATE, creditos JSONB, reversos JSONB, ajustes_especificos JSONB)`);
     await client.query(`ALTER TABLE pagos ADD COLUMN IF NOT EXISTS banco VARCHAR(100)`);
 
     const adminResult = await client.query("SELECT id FROM usuarios WHERE username = 'admin'");
@@ -369,7 +235,6 @@ async function setupPostgreSQL() {
   }
 }
 
-// Función helper para placeholders (solo para MariaDB)
 function placeholder(index) {
   return DB_TYPE === 'postgresql' ? `$${index}` : '?';
 }
@@ -839,7 +704,7 @@ app.get('/api/pagos/pendientes', authenticateToken, authorizeMaster, async (req,
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==================== VERIFICAR PAGO (CORREGIDO) ====================
+// Verificar pago
 app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (req, res) => {
   const pagoId = parseInt(req.params.id);
   const client = await pool.getConnection ? await pool.getConnection() : await pool.connect();
@@ -847,16 +712,12 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     if (client.beginTransaction) await client.beginTransaction();
     else await client.query('BEGIN');
 
-    // 1. Obtener el pago
-    const pagoResult = await client.query(
-      `SELECT * FROM pagos WHERE id = $1`,
-      [pagoId]
-    );
+    const pagoResult = await client.query(`SELECT * FROM pagos WHERE id = $1`, [pagoId]);
     const pago = pagoResult.rows ? pagoResult.rows[0] : pagoResult[0];
+
     if (!pago) throw new Error('Pago no encontrado');
     if (pago.estado !== 'pendiente') throw new Error('Ya verificado');
 
-    // 2. Calcular monto en USD
     let montoUSD = pago.monto_usd;
     if (!montoUSD || montoUSD <= 0) {
       if (!pago.tasa_bcv || pago.tasa_bcv <= 0) throw new Error('Tasa BCV inválida');
@@ -864,7 +725,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     }
     if (montoUSD <= 0) throw new Error('Monto en USD no válido');
 
-    // 3. Obtener deudas pendientes del propietario
     const deudasResult = await client.query(
       `SELECT * FROM deudas 
        WHERE propietario_id = $1 AND pagado = false 
@@ -873,13 +733,11 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     );
     const deudas = deudasResult.rows || deudasResult;
 
-    // 4. Distribuir el pago
     let restante = montoUSD;
     for (const deuda of deudas) {
       if (restante <= 0) break;
 
       if (restante >= deuda.monto_usd) {
-        // Paga toda la deuda
         await client.query(
           `UPDATE deudas SET 
              pagado = true,
@@ -891,7 +749,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
         );
         restante -= deuda.monto_usd;
       } else {
-        // Pago parcial
         await client.query(
           `UPDATE deudas SET 
              monto_usd = $1,
@@ -905,7 +762,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
       }
     }
 
-    // 5. Si sobra, actualizar saldo a favor
     if (restante > 0) {
       await client.query(
         `UPDATE propietarios SET saldo_favor = saldo_favor + $1 WHERE id = $2`,
@@ -913,7 +769,6 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
       );
     }
 
-    // 6. Marcar pago como verificado
     await client.query(
       `UPDATE pagos SET 
          estado = 'verificado',
@@ -937,7 +792,7 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
   }
 });
 
-// ==================== REVERTIR PAGO (CORREGIDO) ====================
+// Revertir pago
 app.post('/api/pagos/:id/revertir', authenticateToken, authorizeMaster, async (req, res) => {
   const pagoId = parseInt(req.params.id);
   const client = await pool.getConnection ? await pool.getConnection() : await pool.connect();
@@ -986,7 +841,7 @@ app.post('/api/pagos/:id/revertir', authenticateToken, authorizeMaster, async (r
   }
 });
 
-// ==================== ELIMINAR PAGO (CORREGIDO) ====================
+// Eliminar pago (solo propietario o master)
 app.delete('/api/pagos/propietario/:id', authenticateToken, async (req, res) => {
   const id = parseInt(req.params.id);
   const p1 = placeholder(1);
@@ -1058,7 +913,7 @@ app.post('/api/pagos/propietario', authenticateToken, async (req, res) => {
 app.put('/api/pagos/propietario/:id', authenticateToken, async (req, res) => {
   const id = parseInt(req.params.id);
   const { fecha_pago, monto_bs, tasa_bcv, referencia, banco } = req.body;
-  const p1 = placeholder(1);
+  const p1 = placeholder(1); // <-- CORRECCIÓN: se define p1
   const pagoResult = await db.query(`SELECT propietario_id FROM pagos WHERE id = ${p1}`, [id]);
   const pago = pagoResult[0];
   if (!pago) return res.status(404).json({ error: 'Pago no encontrado' });
