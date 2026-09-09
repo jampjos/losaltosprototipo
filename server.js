@@ -1,5 +1,4 @@
 // server.js - Versión compatible con MariaDB y PostgreSQL
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
