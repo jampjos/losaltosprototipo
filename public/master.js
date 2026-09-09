@@ -1093,6 +1093,90 @@ document.getElementById('btnGuardarPredeterminadas').addEventListener('click', (
   alert('Configuración guardada.');
 });
 document.getElementById('btnUsarPredeterminadas').addEventListener('click', aplicarAlícuotasPredeterminadas);
+// ==================== FUNCIÓN LIMPIAR MODAL RECIBO ====================
+function limpiarModalRecibo() {
+  document.getElementById('periodoRecibo').value = '';
+  document.getElementById('tasaBCV').value = '';
+  document.getElementById('gastosContainer').innerHTML = '';
+  document.getElementById('ajustesContainer').innerHTML = '';
+  document.getElementById('ajustesEspecificosContainer').innerHTML = '';
+  document.getElementById('gruposAlicuotasContainer').innerHTML = '';
+  document.getElementById('gastosEspecificosContainer').innerHTML = '';
+  document.querySelector('#tablaResumenPropietarios tbody').innerHTML = '';
+  document.getElementById('totalGastosUSD').innerText = '0.00';
+  document.getElementById('totalNetoUSD').innerText = '0.00';
+  document.getElementById('detalleNeto').innerText = '';
+  document.getElementById('fechaTasa').innerText = '';
+  editandoReciboId = null;
+  document.querySelector('#formRecibo button[type="submit"]').textContent = 'Crear Recibo y Deudas';
+}
+
+// ==================== BOTÓN AGREGAR RECIBO ====================
+document.getElementById('btnAgregarRecibo').addEventListener('click', async () => {
+  editandoReciboId = null;
+  limpiarModalRecibo();
+  agregarFilaGasto(); // agrega una fila de gasto vacía
+
+  // Cargar grupos para las alícuotas
+  try {
+    grupos = await api.getGrupos();
+  } catch (err) {
+    console.error('Error cargando grupos:', err);
+  }
+
+  // Agregar alícuotas predeterminadas o una fila vacía
+  if (alicuotasPredeterminadas.length > 0) {
+    alicuotasPredeterminadas.forEach(item => agregarGrupoAlicuota(item.grupoId, item.porcentaje));
+  } else {
+    agregarGrupoAlicuota();
+  }
+
+  // Tasa BCV
+  if (!currentTasaBCV) {
+    await obtenerTasaBCV();
+  } else {
+    document.getElementById('tasaBCV').value = currentTasaBCV;
+    if (currentFechaTasa) {
+      document.getElementById('fechaTasa').innerText = `Actualizada: ${new Date(currentFechaTasa).toLocaleDateString('es-ES')}`;
+    }
+  }
+
+  document.getElementById('modalRecibo').style.display = 'block';
+});
+
+// ==================== BOTONES DEL MODAL ====================
+document.getElementById('btnActualizarTasa').addEventListener('click', obtenerTasaBCV);
+document.getElementById('btnAgregarGasto').addEventListener('click', () => agregarFilaGasto());
+document.getElementById('btnAgregarAjuste').addEventListener('click', () => agregarFilaAjuste());
+document.getElementById('btnAgregarGrupoAlicuota').addEventListener('click', () => agregarGrupoAlicuota());
+document.getElementById('btnAgregarGastoEspecifico').addEventListener('click', () => agregarGastoEspecifico());
+document.getElementById('btnAgregarAjusteEspecifico').addEventListener('click', () => agregarFilaAjusteEspecifico());
+
+// ==================== CERRAR MODALES ====================
+document.querySelectorAll('.modal .close').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.modal').style.display = 'none');
+});
+window.addEventListener('click', (e) => {
+  if (e.target.classList.contains('modal')) e.target.style.display = 'none';
+});
+
+// ==================== RECALCULAR AUTOMÁTICAMENTE ====================
+document.addEventListener('change', (e) => {
+  if (e.target.closest('#gruposAlicuotasContainer, #gastosEspecificosContainer, #gastosContainer, #ajustesContainer, #ajustesEspecificosContainer')) {
+    recalcularTodo();
+  }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.closest('#gruposAlicuotasContainer, #gastosEspecificosContainer, #gastosContainer, #ajustesContainer, #ajustesEspecificosContainer')) {
+    recalcularTodo();
+  }
+  if (e.target.id === 'tasaBCV' && !isNaN(parseFloat(e.target.value))) {
+    currentTasaBCV = parseFloat(e.target.value);
+    calcularTotalGastos();
+    actualizarUSDEnGastosEspecificos();
+    recalcularTodo();
+  }
+});
 
 // ==================== INICIALIZACIÓN ====================
 document.addEventListener('DOMContentLoaded', async () => {
