@@ -1,5 +1,5 @@
 // public/propietario.js - Panel del propietario con detalle de recibos y comprobantes
-// Corregido: parseo seguro de campos JSON (gastos_generales, etc.)
+// Corregido: parseo seguro de campos JSON + campo banco en pagos
 
 console.log('Panel de propietario cargado');
 
@@ -146,7 +146,6 @@ async function cargarDeudas() {
         try {
           const recibo = await api.getReciboById(d.recibo_id);
           if (recibo) {
-            // Parsear gastos_generales por si viene como string
             const gastos = parseJSONField(recibo.gastos_generales);
             if (gastos && gastos.length) {
               const descs = gastos.map(g => g.descripcion).slice(0, 2);
@@ -192,7 +191,7 @@ async function cargarDeudas() {
   }
 }
 
-// ========== MODAL DE DETALLE DEL RECIBO (CON BOTÓN IMPRIMIR SIN HTML2PDF) ==========
+// ========== MODAL DE DETALLE DEL RECIBO ==========
 let modalDetalle = document.getElementById('modalDetalleRecibo');
 if (!modalDetalle) {
   modalDetalle = document.createElement('div');
@@ -280,7 +279,6 @@ async function mostrarDetalleRecibo(reciboId, deudaId) {
     const recibo = await api.getReciboById(parseInt(reciboId));
     if (!recibo) throw new Error('No se pudo obtener el recibo');
 
-    // Parsear campos que pueden venir como string JSON
     const gastosGenerales = parseJSONField(recibo.gastos_generales);
     const gastosEspecificos = parseJSONField(recibo.gastos_especificos);
     const alicuotasGrupo = parseJSONField(recibo.alicuotas_grupo);
@@ -400,7 +398,7 @@ async function mostrarDetalleRecibo(reciboId, deudaId) {
   }
 }
 
-// ========== TABLA DE PAGOS CON BOTÓN "COMPROBANTE" ==========
+// ========== TABLA DE PAGOS CON BANCO Y BOTÓN "COMPROBANTE" ==========
 async function cargarPagos() {
   const tbody = document.querySelector('#tablaPagos tbody');
   if (!tbody) return;
@@ -413,6 +411,7 @@ async function cargarPagos() {
       const isVerified = p.estado === 'verificado';
       tr.innerHTML = `
         <td>${formatearFecha(p.fecha_pago)}</td>
+        <td>${p.banco || '—'}</td>
         <td>${p.monto_bs ? p.monto_bs.toFixed(2) : '—'}</td>
         <td>${p.tasa_bcv ? p.tasa_bcv.toFixed(2) : '—'}</td>
         <td>${montoUSD}</td>
@@ -438,7 +437,7 @@ async function cargarPagos() {
     });
   } catch (err) {
     console.error('Error cargando pagos:', err);
-    tbody.innerHTML = '<td colspan="8">Error al cargar pagos. Intente recargar.</td>';
+    tbody.innerHTML = '<td colspan="9">Error al cargar pagos. Intente recargar.</td>';
   }
 }
 
@@ -482,6 +481,7 @@ async function generarComprobante(pagoId) {
     <p><span class="label">ID del Pago:</span> ${pago.id}</p>
     <p><span class="label">Propietario:</span> ${propietarioActual.nombre} (${propietarioActual.apartamento})</p>
     <p><span class="label">Fecha de Pago:</span> ${formatearFecha(pago.fecha_pago)}</p>
+    <p><span class="label">Banco:</span> ${pago.banco || '—'}</p>
     <p><span class="label">Monto en Bolívares:</span> ${pago.monto_bs.toFixed(2)} Bs</p>
     <p><span class="label">Tasa BCV aplicada:</span> ${pago.tasa_bcv.toFixed(2)} Bs/USD</p>
     <p><span class="label">Equivalente en USD:</span> $${montoUSD}</p>
@@ -527,6 +527,7 @@ function resetFormPago() {
   document.getElementById('pagoId').value = '';
   const hoy = new Date().toISOString().split('T')[0];
   document.getElementById('fechaPago').value = hoy;
+  document.getElementById('bancoPago').value = '';
   document.getElementById('montoPago').value = '';
   document.getElementById('referenciaPago').value = '';
 }
@@ -549,11 +550,12 @@ formPago.addEventListener('submit', async (e) => {
   e.preventDefault();
   const pagoId = document.getElementById('pagoId').value;
   const fecha = document.getElementById('fechaPago').value;
+  const banco = document.getElementById('bancoPago').value;
   const monto_bs = parseFloat(document.getElementById('montoPago').value);
   const tasa_bcv = parseFloat(document.getElementById('tasaPago').value);
   const referencia = document.getElementById('referenciaPago').value;
 
-  if (!fecha || isNaN(monto_bs) || monto_bs <= 0 || isNaN(tasa_bcv) || tasa_bcv <= 0 || !referencia) {
+  if (!fecha || !banco || isNaN(monto_bs) || monto_bs <= 0 || isNaN(tasa_bcv) || tasa_bcv <= 0 || !referencia) {
     alert('Todos los campos son obligatorios y los montos deben ser positivos');
     return;
   }
@@ -563,6 +565,7 @@ formPago.addEventListener('submit', async (e) => {
       id: pagoId ? parseInt(pagoId) : null,
       propietario_id: parseInt(propietarioId),
       fecha_pago: fecha,
+      banco: banco,
       monto_bs,
       tasa_bcv,
       referencia
@@ -595,6 +598,7 @@ window.editarPago = async (pagoId) => {
     modalPagoTitulo.textContent = 'Editar Pago';
     document.getElementById('pagoId').value = pago.id;
     document.getElementById('fechaPago').value = pago.fecha_pago || '';
+    document.getElementById('bancoPago').value = pago.banco || '';
     document.getElementById('montoPago').value = pago.monto_bs;
     document.getElementById('tasaPago').value = pago.tasa_bcv;
     document.getElementById('referenciaPago').value = pago.referencia || '';
