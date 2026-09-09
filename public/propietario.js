@@ -1,5 +1,5 @@
 // public/propietario.js - Panel del propietario con detalle de recibos y comprobantes
-// Corregido: parseo seguro de campos JSON + campo banco en pagos
+// Corregido: parseo seguro de campos JSON + campo banco + formateo automático de monto
 
 console.log('Panel de propietario cargado');
 
@@ -28,6 +28,31 @@ function parseJSONField(field) {
     }
   }
   return field || [];
+}
+
+// ---------- FORMATEO AUTOMÁTICO DE MONTO ----------
+function formatearMonto(input) {
+  // Obtener solo números
+  let valor = input.value.replace(/[^0-9]/g, '');
+  
+  if (valor === '') {
+    input.value = '';
+    return;
+  }
+  
+  // Eliminar ceros a la izquierda
+  valor = valor.replace(/^0+/, '');
+  
+  if (valor === '') {
+    input.value = '0.00';
+    return;
+  }
+  
+  // Convertir a número y dividir entre 100 para agregar decimales
+  const numero = parseInt(valor) / 100;
+  
+  // Formatear con 2 decimales
+  input.value = numero.toFixed(2);
 }
 
 // Obtener parámetros de la URL (propietarioId y usuarioId)
@@ -546,6 +571,18 @@ window.addEventListener('click', (e) => {
   if (e.target === modalPago) modalPago.style.display = 'none';
 });
 
+// Aplicar formateo automático al campo de monto
+const montoInput = document.getElementById('montoPago');
+if (montoInput) {
+  montoInput.addEventListener('input', function(e) {
+    formatearMonto(this);
+  });
+  
+  montoInput.addEventListener('focus', function(e) {
+    this.select();
+  });
+}
+
 formPago.addEventListener('submit', async (e) => {
   e.preventDefault();
   const pagoId = document.getElementById('pagoId').value;
@@ -599,7 +636,7 @@ window.editarPago = async (pagoId) => {
     document.getElementById('pagoId').value = pago.id;
     document.getElementById('fechaPago').value = pago.fecha_pago || '';
     document.getElementById('bancoPago').value = pago.banco || '';
-    document.getElementById('montoPago').value = pago.monto_bs;
+    document.getElementById('montoPago').value = pago.monto_bs.toFixed(2);
     document.getElementById('tasaPago').value = pago.tasa_bcv;
     document.getElementById('referenciaPago').value = pago.referencia || '';
 
