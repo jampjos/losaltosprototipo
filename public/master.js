@@ -1,4 +1,4 @@
-// public/master.js - Completo con pagos verificados por propietario y confirmaciones
+// public/master.js - Panel Master con pagos verificados, confirmaciones y sin edición de recibos
 console.log('🖥️ Master UI cargada');
 
 const API_BASE = '/api';
@@ -12,7 +12,7 @@ let grupoSeleccionado = null;
 let propiedadSeleccionada = null;
 let currentTasaBCV = null;
 let currentFechaTasa = null;
-let editandoReciboId = null;
+let editandoReciboId = null; // Aunque ya no se usa, se mantiene para compatibilidad
 
 // ---------- Configuración predeterminada de alícuotas ----------
 let alicuotasPredeterminadas = [];
@@ -65,12 +65,14 @@ const api = {
   getPropietariosConSaldo: () => fetchAPI('/propietarios/saldo'),
   getPropietarioById: (id) => fetchAPI(`/propietarios/${id}`),
   addRecibo: (recibo) => fetchAPI('/recibos', 'POST', recibo),
-  updateRecibo: (id, recibo) => fetchAPI(`/recibos/${id}`, 'PUT', recibo),
+  // updateRecibo ya no se usa (edición deshabilitada)
+  // updateRecibo: (id, recibo) => fetchAPI(`/recibos/${id}`, 'PUT', recibo),
   getRecibos: (grupoId) => fetchAPI('/recibos' + (grupoId ? `?grupoId=${grupoId}` : '')),
   getReciboById: (id) => fetchAPI(`/recibos/${id}`),
   addDeuda: (deuda) => fetchAPI('/deudas', 'POST', deuda),
   getDeudasByPropietario: (propId) => fetchAPI(`/propietarios/${propId}/deudas`),
-  deleteDeuda: (id) => fetchAPI(`/deudas/${id}`, 'DELETE'),
+  // deleteDeuda ya no se usa
+  // deleteDeuda: (id) => fetchAPI(`/deudas/${id}`, 'DELETE'),
   getPagosPendientes: () => fetchAPI('/pagos/pendientes'),
   verificarPago: (pagoId) => fetchAPI(`/pagos/${pagoId}/verificar`, 'POST'),
   getPagosByPropietario: (propId) => fetchAPI(`/propietarios/${propId}/pagos`),
@@ -588,68 +590,63 @@ document.getElementById('formRecibo')?.addEventListener('submit', async (e) => {
       fecha_tasa: currentFechaTasa || new Date().toISOString()
     };
 
-    if (editandoReciboId) {
-      await api.updateRecibo(editandoReciboId, reciboData);
-      alert('✅ Recibo actualizado correctamente.');
-    } else {
-      const reciboCreado = await api.addRecibo(reciboData);
-      const reciboId = reciboCreado.id;
+    // Siempre crear un nuevo recibo (edición deshabilitada)
+    const reciboCreado = await api.addRecibo(reciboData);
+    const reciboId = reciboCreado.id;
 
-      const todosPropietarios = await api.getPropietarios();
-      const propietariosPorGrupo = {};
-      todosPropietarios.forEach(p => {
-        if (!propietariosPorGrupo[p.grupo_id]) propietariosPorGrupo[p.grupo_id] = [];
-        propietariosPorGrupo[p.grupo_id].push(p);
-      });
+    const todosPropietarios = await api.getPropietarios();
+    const propietariosPorGrupo = {};
+    todosPropietarios.forEach(p => {
+      if (!propietariosPorGrupo[p.grupo_id]) propietariosPorGrupo[p.grupo_id] = [];
+      propietariosPorGrupo[p.grupo_id].push(p);
+    });
 
-      const montoPorPropietario = new Map();
-      for (const ag of alicuotas) {
-        const montoGrupo = totalNeto * (ag.porcentaje / 100);
-        const props = propietariosPorGrupo[ag.grupoId] || [];
+    const montoPorPropietario = new Map();
+    for (const ag of alicuotas) {
+      const montoGrupo = totalNeto * (ag.porcentaje / 100);
+      const props = propietariosPorGrupo[ag.grupoId] || [];
+      if (props.length === 0) continue;
+      const montoPorProp = montoGrupo / props.length;
+      props.forEach(p => montoPorPropietario.set(p.id, (montoPorPropietario.get(p.id) || 0) + montoPorProp));
+    }
+    for (const ge of especificos) {
+      if (ge.tipo === 'grupo') {
+        const props = propietariosPorGrupo[ge.id] || [];
         if (props.length === 0) continue;
-        const montoPorProp = montoGrupo / props.length;
-        props.forEach(p => montoPorPropietario.set(p.id, (montoPorPropietario.get(p.id) || 0) + montoPorProp));
+        const montoAdicional = ge.monto / props.length;
+        props.forEach(p => montoPorPropietario.set(p.id, (montoPorPropietario.get(p.id) || 0) + montoAdicional));
+      } else {
+        montoPorPropietario.set(ge.id, (montoPorPropietario.get(ge.id) || 0) + ge.monto);
       }
-      for (const ge of especificos) {
-        if (ge.tipo === 'grupo') {
-          const props = propietariosPorGrupo[ge.id] || [];
-          if (props.length === 0) continue;
-          const montoAdicional = ge.monto / props.length;
-          props.forEach(p => montoPorPropietario.set(p.id, (montoPorPropietario.get(p.id) || 0) + montoAdicional));
-        } else {
-          montoPorPropietario.set(ge.id, (montoPorPropietario.get(ge.id) || 0) + ge.monto);
-        }
+    }
+    for (const ae of ajustesEspecificos) {
+      const factor = ae.tipo === 'credito' ? -1 : 1;
+      if (ae.destino_tipo === 'grupo') {
+        const props = propietariosPorGrupo[ae.destino_id] || [];
+        if (props.length === 0) continue;
+        const montoIndividual = (ae.monto * factor) / props.length;
+        props.forEach(p => montoPorPropietario.set(p.id, (montoPorPropietario.get(p.id) || 0) + montoIndividual));
+      } else {
+        montoPorPropietario.set(ae.destino_id, (montoPorPropietario.get(ae.destino_id) || 0) + ae.monto * factor);
       }
-      for (const ae of ajustesEspecificos) {
-        const factor = ae.tipo === 'credito' ? -1 : 1;
-        if (ae.destino_tipo === 'grupo') {
-          const props = propietariosPorGrupo[ae.destino_id] || [];
-          if (props.length === 0) continue;
-          const montoIndividual = (ae.monto * factor) / props.length;
-          props.forEach(p => montoPorPropietario.set(p.id, (montoPorPropietario.get(p.id) || 0) + montoIndividual));
-        } else {
-          montoPorPropietario.set(ae.destino_id, (montoPorPropietario.get(ae.destino_id) || 0) + ae.monto * factor);
-        }
-      }
-
-      let deudasCreadas = 0;
-      for (const [propId, monto] of montoPorPropietario.entries()) {
-        if (monto <= 0) continue;
-        const montoRedondeado = Math.round(monto * 100) / 100;
-        await api.addDeuda({
-          propietario_id: propId,
-          periodo,
-          monto_usd: montoRedondeado,
-          fecha_vencimiento: null,
-          recibo_id: reciboId,
-          porcentaje_alicuota: (montoRedondeado / totalNeto) * 100
-        });
-        deudasCreadas++;
-      }
-      alert(`✅ Recibo creado. Se generaron ${deudasCreadas} deudas.`);
     }
 
-    editandoReciboId = null;
+    let deudasCreadas = 0;
+    for (const [propId, monto] of montoPorPropietario.entries()) {
+      if (monto <= 0) continue;
+      const montoRedondeado = Math.round(monto * 100) / 100;
+      await api.addDeuda({
+        propietario_id: propId,
+        periodo,
+        monto_usd: montoRedondeado,
+        fecha_vencimiento: null,
+        recibo_id: reciboId,
+        porcentaje_alicuota: (montoRedondeado / totalNeto) * 100
+      });
+      deudasCreadas++;
+    }
+    alert(`✅ Recibo creado. Se generaron ${deudasCreadas} deudas.`);
+
     document.getElementById('modalRecibo').style.display = 'none';
     cargarRecibos();
     if (propiedadSeleccionada) cargarPagosVerificados(propiedadSeleccionada);
@@ -660,169 +657,6 @@ document.getElementById('formRecibo')?.addEventListener('submit', async (e) => {
     isSubmitting = false;
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;
-  }
-});
-
-// ==================== EDICIÓN DE RECIBOS ====================
-function limpiarModalRecibo() {
-  document.getElementById('periodoRecibo').value = '';
-  document.getElementById('tasaBCV').value = '';
-  document.getElementById('gastosContainer').innerHTML = '';
-  document.getElementById('ajustesContainer').innerHTML = '';
-  document.getElementById('ajustesEspecificosContainer').innerHTML = '';
-  document.getElementById('gruposAlicuotasContainer').innerHTML = '';
-  document.getElementById('gastosEspecificosContainer').innerHTML = '';
-  document.querySelector('#tablaResumenPropietarios tbody').innerHTML = '';
-  document.getElementById('totalGastosUSD').innerText = '0.00';
-  document.getElementById('totalNetoUSD').innerText = '0.00';
-  document.getElementById('detalleNeto').innerText = '';
-  document.getElementById('fechaTasa').innerText = '';
-  editandoReciboId = null;
-}
-
-async function cargarYEditarRecibo(id) {
-  const recibo = await api.getReciboById(id);
-  recibo.gastos_generales = parseJSONField(recibo.gastos_generales);
-  recibo.alicuotas_grupo = parseJSONField(recibo.alicuotas_grupo);
-  recibo.gastos_especificos = parseJSONField(recibo.gastos_especificos);
-  recibo.creditos = parseJSONField(recibo.creditos);
-  recibo.reversos = parseJSONField(recibo.reversos);
-  recibo.ajustes_especificos = parseJSONField(recibo.ajustes_especificos);
-  abrirEdicionRecibo(recibo);
-}
-
-async function abrirEdicionRecibo(recibo) {
-  limpiarModalRecibo();
-  editandoReciboId = recibo.id;
-  document.getElementById('periodoRecibo').value = recibo.periodo;
-  document.getElementById('tasaBCV').value = recibo.tasa_bcv || '';
-  currentTasaBCV = recibo.tasa_bcv;
-  currentFechaTasa = recibo.fecha_tasa;
-  if (recibo.fecha_tasa) {
-    document.getElementById('fechaTasa').innerText = `Actualizada: ${new Date(recibo.fecha_tasa).toLocaleDateString('es-ES')}`;
-  }
-  grupos = await api.getGrupos();
-
-  recibo.gastos_generales.forEach(g => agregarFilaGasto(g.descripcion, g.monto_ves));
-  recibo.creditos.forEach(c => agregarFilaAjuste('credito', c.descripcion, c.monto_usd));
-  recibo.reversos.forEach(r => agregarFilaAjuste('reverso', r.descripcion, r.monto_usd));
-  if (recibo.ajustes_especificos && recibo.ajustes_especificos.length) {
-    recibo.ajustes_especificos.forEach(ae => {
-      agregarFilaAjusteEspecifico({
-        tipo: ae.tipo,
-        destino_tipo: ae.destino_tipo,
-        destino_id: ae.destino_id,
-        monto_usd: ae.monto,
-        descripcion: ae.descripcion
-      });
-    });
-  }
-  recibo.alicuotas_grupo.forEach(a => agregarGrupoAlicuota(a.grupoId, a.porcentaje));
-  recibo.gastos_especificos.forEach(ge => agregarGastoEspecificoPrecargado(ge));
-
-  calcularTotalGastos();
-  calcularNetoTotal();
-  recalcularTodo();
-  document.querySelector('#formRecibo button[type="submit"]').textContent = 'Actualizar Recibo';
-  document.getElementById('modalRecibo').style.display = 'block';
-}
-
-function agregarGastoEspecificoPrecargado(datos) {
-  const container = document.getElementById('gastosEspecificosContainer');
-  if (!container) return;
-  const row = document.createElement('div');
-  row.className = 'gasto-especifico-row';
-  row.style.display = 'flex'; row.style.gap = '10px'; row.style.alignItems = 'center';
-  row.style.marginBottom = '8px'; row.style.backgroundColor = '#e9ecef';
-  row.style.padding = '8px'; row.style.borderRadius = '4px'; row.style.flexWrap = 'wrap';
-
-  const selectTipo = document.createElement('select');
-  selectTipo.innerHTML = `<option value="grupo" ${datos.tipo === 'grupo' ? 'selected' : ''}>Afecta a un grupo</option>
-                          <option value="propietario" ${datos.tipo === 'prop' ? 'selected' : ''}>Afecta a un propietario</option>`;
-  const selectDestino = document.createElement('select');
-  selectDestino.style.flex = '1';
-  const inputDescripcion = document.createElement('input');
-  inputDescripcion.type = 'text'; inputDescripcion.value = datos.descripcion || '';
-  const inputMontoVES = document.createElement('input');
-  inputMontoVES.type = 'number'; inputMontoVES.step = 'any';
-  inputMontoVES.className = 'gasto-especifico-monto-ves';
-  inputMontoVES.value = datos.monto ? (datos.monto * (currentTasaBCV || 1)).toFixed(2) : '';
-  const usdSpan = document.createElement('span');
-  usdSpan.className = 'gasto-especifico-usd';
-  usdSpan.innerText = datos.monto ? datos.monto.toFixed(2) + ' USD' : '0.00 USD';
-  const btnEliminar = document.createElement('button');
-  btnEliminar.textContent = '✖'; btnEliminar.style.backgroundColor = '#dc3545';
-
-  async function cargarDestinos() {
-    if (selectTipo.value === 'grupo') {
-      const gruposList = await api.getGrupos();
-      selectDestino.innerHTML = '<option value="">Seleccione grupo</option>' +
-        gruposList.map(g => `<option value="grupo_${g.id}" ${datos.tipo === 'grupo' && datos.id === g.id ? 'selected' : ''}>${g.nombre}</option>`).join('');
-    } else {
-      const props = await api.getPropietarios();
-      selectDestino.innerHTML = '<option value="">Seleccione propietario</option>' +
-        props.map(p => `<option value="prop_${p.id}" ${datos.tipo === 'prop' && datos.id === p.id ? 'selected' : ''}>${p.nombre} (${p.apartamento})</option>`).join('');
-    }
-  }
-  function actualizarUSD() {
-    if (!currentTasaBCV) return;
-    const montoVES = parseFloat(inputMontoVES.value) || 0;
-    usdSpan.innerText = montoVES > 0 ? (montoVES / currentTasaBCV).toFixed(2) + ' USD' : '0.00 USD';
-  }
-  selectTipo.addEventListener('change', cargarDestinos);
-  cargarDestinos();
-  inputMontoVES.addEventListener('input', () => { actualizarUSD(); recalcularTodo(); });
-  inputDescripcion.addEventListener('input', () => recalcularTodo());
-  selectDestino.addEventListener('change', () => recalcularTodo());
-  btnEliminar.addEventListener('click', () => { row.remove(); recalcularTodo(); });
-
-  row.appendChild(selectTipo); row.appendChild(selectDestino); row.appendChild(inputDescripcion);
-  row.appendChild(inputMontoVES); row.appendChild(usdSpan); row.appendChild(btnEliminar);
-  container.appendChild(row);
-}
-
-// ==================== BOTÓN AGREGAR RECIBO Y EVENTOS ====================
-document.getElementById('btnAgregarRecibo').addEventListener('click', async () => {
-  editandoReciboId = null;
-  limpiarModalRecibo();
-  agregarFilaGasto();
-  try { grupos = await api.getGrupos(); } catch (err) { console.error(err); }
-  if (alicuotasPredeterminadas.length > 0) {
-    alicuotasPredeterminadas.forEach(item => agregarGrupoAlicuota(item.grupoId, item.porcentaje));
-  } else {
-    agregarGrupoAlicuota();
-  }
-  if (!currentTasaBCV) await obtenerTasaBCV();
-  else {
-    document.getElementById('tasaBCV').value = currentTasaBCV;
-    if (currentFechaTasa) document.getElementById('fechaTasa').innerText = `Actualizada: ${new Date(currentFechaTasa).toLocaleDateString('es-ES')}`;
-  }
-  document.querySelector('#formRecibo button[type="submit"]').textContent = 'Crear Recibo y Deudas';
-  document.getElementById('modalRecibo').style.display = 'block';
-});
-
-document.getElementById('btnActualizarTasa').addEventListener('click', obtenerTasaBCV);
-document.getElementById('btnAgregarGasto').addEventListener('click', () => agregarFilaGasto());
-document.getElementById('btnAgregarAjuste').addEventListener('click', () => agregarFilaAjuste());
-document.getElementById('btnAgregarGrupoAlicuota').addEventListener('click', () => agregarGrupoAlicuota());
-document.getElementById('btnAgregarGastoEspecifico').addEventListener('click', () => agregarGastoEspecifico());
-document.getElementById('btnAgregarAjusteEspecifico').addEventListener('click', () => agregarFilaAjusteEspecifico());
-
-// Cerrar modales
-document.querySelectorAll('.modal .close').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal').style.display = 'none'));
-window.addEventListener('click', (e) => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; });
-
-// Recalcular automáticamente
-document.addEventListener('change', (e) => {
-  if (e.target.closest('#gruposAlicuotasContainer, #gastosEspecificosContainer, #gastosContainer, #ajustesContainer, #ajustesEspecificosContainer')) recalcularTodo();
-});
-document.addEventListener('input', (e) => {
-  if (e.target.closest('#gruposAlicuotasContainer, #gastosEspecificosContainer, #gastosContainer, #ajustesContainer, #ajustesEspecificosContainer')) recalcularTodo();
-  if (e.target.id === 'tasaBCV' && !isNaN(parseFloat(e.target.value))) {
-    currentTasaBCV = parseFloat(e.target.value);
-    calcularTotalGastos();
-    actualizarUSDEnGastosEspecificos();
-    recalcularTodo();
   }
 });
 
@@ -954,7 +788,7 @@ async function verRecibo(reciboId) {
   modalVerRecibo.style.display = 'block';
 }
 
-// ==================== CARGAR RECIBOS ====================
+// ==================== CARGAR RECIBOS (SIN BOTÓN EDITAR) ====================
 async function cargarRecibos() {
   const tbody = document.querySelector('#tablaRecibos tbody');
   if (!tbody) return;
@@ -971,7 +805,6 @@ async function cargarRecibos() {
         <td>${grupo?.nombre || 'Todos'}</td>
         <td>
           <button onclick="verRecibo(${r.id})" style="background:#17a2b8;">Ver</button>
-          <button onclick="cargarYEditarRecibo(${r.id})" style="background:#ffc107; margin-left:5px;">Editar</button>
         </td>`;
       tbody.appendChild(tr);
     }
@@ -980,7 +813,6 @@ async function cargarRecibos() {
   }
 }
 window.verRecibo = verRecibo;
-window.cargarYEditarRecibo = cargarYEditarRecibo;
 
 // ==================== PAGOS VERIFICADOS POR PROPIEDAD ====================
 async function cargarGruposParaDeudas() {
@@ -1126,7 +958,7 @@ async function cargarPagosPendientes() {
         <td>${(p.tasa_bcv || 0).toFixed(2)}</td>
         <td>
           <button class="btn-verificar" onclick="verificarPago(${p.id})">Verificar</button>
-          <button class="btn-eliminar" onclick="eliminarPagoPendiente(${p.id})" style="background-color:#dc3545; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-left:5px;">Eliminar</button>
+          <button class="btn-eliminar" onclick="eliminarPagoPendiente(${p.id})">Eliminar</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -1243,7 +1075,6 @@ function aplicarAlícuotasPredeterminadas() {
   validarSumaAlicuotas();
 }
 
-// Eventos de configuración
 document.getElementById('btnConfigurarPredeterminadas').addEventListener('click', async () => {
   await renderizarModalConfigPredeterminadas();
   document.getElementById('modalConfigPredeterminadas').style.display = 'block';
