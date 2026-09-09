@@ -278,8 +278,8 @@ if (!modalDetalle) {
         <body>
           <div class="recibo">
             <div class="encabezado">
-              <h2>CONJUNTO RESIDENCIAL LA CASONA ETAPA I</h2>
-              <p>RIF: J-50286741-4</p>
+              <h2>CONJUNTO RESIDENCIAL LOS ALTOS I</h2>
+              <p>RIF: J-30388993-0</p>
               <h4>Detalles del Recibo</h4>
             </div>
             <p style="font-size: 14px; margin-top: 20px;"><strong>Propietario:</strong> ${propietarioActual.nombre} (${propietarioActual.apartamento})</p>
@@ -499,14 +499,14 @@ async function generarComprobante(pagoId) {
 <body>
   <div class="comprobante">
     <div class="encabezado">
-      <h3>CONJUNTO RESIDENCIAL LA CASONA ETAPA I</h3>
-      <p class="rif">RIF: J-50286741-4</p>
+      <h3>CONJUNTO RESIDENCIAL LOS ALTOS I</h3>
+      <p class="rif">RIF: J-30388993-0</p>
       <h4>COMPROBANTE DE PAGO VERIFICADO</h4>
     </div>
     <p><span class="label">ID del Pago:</span> ${pago.id}</p>
     <p><span class="label">Propietario:</span> ${propietarioActual.nombre} (${propietarioActual.apartamento})</p>
     <p><span class="label">Fecha de Pago:</span> ${formatearFecha(pago.fecha_pago)}</p>
-    <p><span class="label">Banco:</span> ${pago.banco || '—'}</p>
+    <p><span class="label">Banco destino:</span> ${pago.banco || '—'}</p>
     <p><span class="label">Monto en Bolívares:</span> ${pago.monto_bs.toFixed(2)} Bs</p>
     <p><span class="label">Tasa BCV aplicada:</span> ${pago.tasa_bcv.toFixed(2)} Bs/USD</p>
     <p><span class="label">Equivalente en USD:</span> $${montoUSD}</p>
