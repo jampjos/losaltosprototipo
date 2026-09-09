@@ -7,6 +7,7 @@ console.log('Panel de propietario cargado');
 const API_BASE = '/api';
 
 // ---------- Función helper para formatear fechas ----------
+// Se mantiene para fechas que vienen como YYYY-MM-DD (vencimientos, etc.)
 function formatearFecha(fechaString) {
   if (!fechaString) return '—';
   // Si viene en formato ISO (YYYY-MM-DD), la formateamos manualmente sin depender de zona horaria
@@ -426,7 +427,7 @@ async function mostrarDetalleRecibo(reciboId, deudaId) {
   }
 }
 
-// ========== TABLA DE PAGOS CON BANCO Y BOTÓN "COMPROBANTE" ==========
+// ========== TABLA DE PAGOS (FECHAS DIRECTAS DEL SERVIDOR) ==========
 async function cargarPagos() {
   const tbody = document.querySelector('#tablaPagos tbody');
   if (!tbody) return;
@@ -438,14 +439,14 @@ async function cargarPagos() {
       const montoUSD = p.monto_bs && p.tasa_bcv ? (p.monto_bs / p.tasa_bcv).toFixed(2) : '—';
       const isVerified = p.estado === 'verificado';
       tr.innerHTML = `
-        <td>${formatearFecha(p.fecha_pago)}</td>
+        <td>${p.fecha_pago || '—'}</td>
         <td>${p.banco || '—'}</td>
         <td>${p.monto_bs ? p.monto_bs.toFixed(2) : '—'}</td>
         <td>${p.tasa_bcv ? p.tasa_bcv.toFixed(2) : '—'}</td>
         <td>${montoUSD}</td>
         <td>${p.referencia || '—'}</td>
         <td class="${isVerified ? 'verificado' : 'pendiente'}">${p.estado}</td>
-        <td>${formatearFecha(p.fecha_verificacion)}</td>
+        <td>${p.fecha_verificacion || '—'}</td>
         <td class="acciones-pago">
           ${!isVerified ? 
             `<button class="btn-editar" onclick="editarPago(${p.id})">Editar</button>
@@ -469,7 +470,7 @@ async function cargarPagos() {
   }
 }
 
-// ========== GENERAR COMPROBANTE EN NUEVA VENTANA ==========
+// ========== GENERAR COMPROBANTE (FECHAS DIRECTAS) ==========
 async function generarComprobante(pagoId) {
   try {
     const pagos = await api.getPagosByPropietario(parseInt(propietarioId));
@@ -508,13 +509,13 @@ async function generarComprobante(pagoId) {
     </div>
     <p><span class="label">ID del Pago:</span> ${pago.id}</p>
     <p><span class="label">Propietario:</span> ${propietarioActual.nombre} (${propietarioActual.apartamento})</p>
-    <p><span class="label">Fecha de Pago:</span> ${formatearFecha(pago.fecha_pago)}</p>
+    <p><span class="label">Fecha de Pago:</span> ${pago.fecha_pago || '—'}</p>
     <p><span class="label">Banco destino:</span> ${pago.banco || '—'}</p>
     <p><span class="label">Monto en Bolívares:</span> ${pago.monto_bs.toFixed(2)} Bs</p>
     <p><span class="label">Tasa BCV aplicada:</span> ${pago.tasa_bcv.toFixed(2)} Bs/USD</p>
     <p><span class="label">Equivalente en USD:</span> $${montoUSD}</p>
     <p><span class="label">Número de Referencia:</span> ${pago.referencia || '—'}</p>
-    <p><span class="label">Fecha de Verificación:</span> ${formatearFecha(pago.fecha_verificacion)}</p>
+    <p><span class="label">Fecha de Verificación:</span> ${pago.fecha_verificacion || '—'}</p>
     <hr>
     <p>Este comprobante certifica que el pago fue verificado y aplicado correctamente a las deudas del condominio.</p>
     <div class="footer">Generado el ${new Date().toLocaleString()}</div>
