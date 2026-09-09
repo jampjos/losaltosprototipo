@@ -369,6 +369,7 @@ async function setupPostgreSQL() {
   }
 }
 
+// Función helper para placeholders (solo para MariaDB)
 function placeholder(index) {
   return DB_TYPE === 'postgresql' ? `$${index}` : '?';
 }
@@ -417,7 +418,7 @@ app.get('/api/grupos', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/propietarios/:id', authenticateToken, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   if (req.user.rol !== 'master' && req.user.propietario_id != id) {
     return res.status(403).json({ error: 'No autorizado' });
   }
@@ -430,7 +431,7 @@ app.get('/api/propietarios/:id', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/recibos/:id', authenticateToken, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   try {
     const p1 = placeholder(1);
     const rows = await db.query(`SELECT * FROM recibos WHERE id = ${p1}`, [id]);
@@ -450,7 +451,7 @@ app.get('/api/recibos/:id', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/usuarios/:id/password', authenticateToken, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { nuevaPassword } = req.body;
   if (req.user.rol !== 'master' && req.user.id != id) {
     return res.status(403).json({ error: 'No autorizado para cambiar esta contraseña' });
@@ -480,7 +481,7 @@ app.post('/api/grupos', authenticateToken, authorizeMaster, async (req, res) => 
 });
 
 app.put('/api/grupos/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { nombre } = req.body;
   try {
     const p1 = placeholder(1);
@@ -491,7 +492,7 @@ app.put('/api/grupos/:id', authenticateToken, authorizeMaster, async (req, res) 
 });
 
 app.delete('/api/grupos/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const client = await pool.getConnection ? await pool.getConnection() : await pool.connect();
   try {
     if (client.beginTransaction) await client.beginTransaction();
@@ -515,7 +516,7 @@ app.delete('/api/grupos/:id', authenticateToken, authorizeMaster, async (req, re
 });
 
 app.post('/api/grupos/:id/asignar', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'Se requiere una lista de IDs de propietarios' });
@@ -592,7 +593,7 @@ app.post('/api/propietarios', authenticateToken, authorizeMaster, async (req, re
 });
 
 app.put('/api/propietarios/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { apartamento, nombre, telefono, email, grupo_id } = req.body;
   try {
     const params = [apartamento, nombre, telefono || null, email || null, grupo_id || null, id];
@@ -613,7 +614,7 @@ app.put('/api/propietarios/:id', authenticateToken, authorizeMaster, async (req,
 });
 
 app.delete('/api/propietarios/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   try {
     const p1 = placeholder(1);
     const result = await db.execute(`DELETE FROM propietarios WHERE id = ${p1}`, [id]);
@@ -622,7 +623,7 @@ app.delete('/api/propietarios/:id', authenticateToken, authorizeMaster, async (r
 });
 
 app.get('/api/propietarios/:id/usuario', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   try {
     const p1 = placeholder(1);
     const rows = await db.query(`SELECT * FROM usuarios WHERE propietario_id = ${p1}`, [id]);
@@ -631,7 +632,7 @@ app.get('/api/propietarios/:id/usuario', authenticateToken, authorizeMaster, asy
 });
 
 app.post('/api/propietarios/:id/usuario', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { username, password } = req.body;
   const hash = bcrypt.hashSync(password, 10);
   try {
@@ -652,7 +653,7 @@ app.post('/api/propietarios/:id/usuario', authenticateToken, authorizeMaster, as
 });
 
 app.put('/api/propietarios/:id/usuario', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { username, password } = req.body;
   try {
     if (password) {
@@ -716,7 +717,7 @@ app.post('/api/recibos', authenticateToken, authorizeMaster, async (req, res) =>
 });
 
 app.put('/api/recibos/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { periodo, monto_usd, grupo_id, gastos_generales, alicuotas_grupo, gastos_especificos, creditos, reversos, ajustes_especificos, tasa_bcv, fecha_tasa } = req.body;
   try {
     const params = [
@@ -744,7 +745,7 @@ app.put('/api/recibos/:id', authenticateToken, authorizeMaster, async (req, res)
 });
 
 app.delete('/api/recibos/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   try {
     const p1 = placeholder(1);
     const pagadoCondition = DB_TYPE === 'postgresql' ? 'false' : '0';
@@ -801,7 +802,7 @@ app.post('/api/deudas', authenticateToken, authorizeMaster, async (req, res) => 
 });
 
 app.put('/api/deudas/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { periodo, monto_usd, fecha_vencimiento, pagado } = req.body;
   try {
     const params = [periodo, monto_usd, fecha_vencimiento || null, pagado, id];
@@ -819,7 +820,7 @@ app.put('/api/deudas/:id', authenticateToken, authorizeMaster, async (req, res) 
 });
 
 app.delete('/api/deudas/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   try {
     const p1 = placeholder(1);
     const result = await db.execute(`DELETE FROM deudas WHERE id = ${p1}`, [id]);
@@ -838,20 +839,24 @@ app.get('/api/pagos/pendientes', authenticateToken, authorizeMaster, async (req,
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==================== VERIFICAR PAGO (CORREGIDO) ====================
 app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (req, res) => {
-  const pagoId = parseInt(req.params.id); // <-- conversión
+  const pagoId = parseInt(req.params.id);
   const client = await pool.getConnection ? await pool.getConnection() : await pool.connect();
   try {
     if (client.beginTransaction) await client.beginTransaction();
     else await client.query('BEGIN');
 
-    const p1 = placeholder(1);
-    const pagoResult = await client.query(`SELECT * FROM pagos WHERE id = ${p1}`, [pagoId]);
+    // 1. Obtener el pago
+    const pagoResult = await client.query(
+      `SELECT * FROM pagos WHERE id = $1`,
+      [pagoId]
+    );
     const pago = pagoResult.rows ? pagoResult.rows[0] : pagoResult[0];
-
     if (!pago) throw new Error('Pago no encontrado');
     if (pago.estado !== 'pendiente') throw new Error('Ya verificado');
 
+    // 2. Calcular monto en USD
     let montoUSD = pago.monto_usd;
     if (!montoUSD || montoUSD <= 0) {
       if (!pago.tasa_bcv || pago.tasa_bcv <= 0) throw new Error('Tasa BCV inválida');
@@ -859,57 +864,63 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     }
     if (montoUSD <= 0) throw new Error('Monto en USD no válido');
 
+    // 3. Obtener deudas pendientes del propietario
     const deudasResult = await client.query(
       `SELECT * FROM deudas 
-       WHERE propietario_id = ${p1} AND pagado = ${DB_TYPE === 'postgresql' ? 'false' : '0'} 
+       WHERE propietario_id = $1 AND pagado = false 
        ORDER BY periodo`,
       [pago.propietario_id]
     );
-    const deudasRows = deudasResult.rows || deudasResult;
+    const deudas = deudasResult.rows || deudasResult;
 
+    // 4. Distribuir el pago
     let restante = montoUSD;
-    for (const deuda of deudasRows) {
+    for (const deuda of deudas) {
       if (restante <= 0) break;
-      const p2 = placeholder(2);
-      const p3 = placeholder(3);
-      const p4 = placeholder(4);
 
       if (restante >= deuda.monto_usd) {
+        // Paga toda la deuda
         await client.query(
           `UPDATE deudas SET 
-             pagado = ${DB_TYPE === 'postgresql' ? 'true' : '1'}, 
-             fecha_pago = ${p2}, 
-             referencia_pago = ${p3}, 
-             original_monto = COALESCE(original_monto, monto_usd) 
-           WHERE id = ${p4}`,
+             pagado = true,
+             fecha_pago = $1,
+             referencia_pago = $2,
+             original_monto = COALESCE(original_monto, monto_usd)
+           WHERE id = $3`,
           [pago.fecha_pago, pago.referencia, deuda.id]
         );
         restante -= deuda.monto_usd;
       } else {
+        // Pago parcial
         await client.query(
           `UPDATE deudas SET 
-             monto_usd = ${p2}, 
-             fecha_pago = ${p3}, 
-             referencia_pago = ${p4}, 
-             original_monto = COALESCE(original_monto, monto_usd) 
-           WHERE id = ${p1}`,
+             monto_usd = $1,
+             fecha_pago = $2,
+             referencia_pago = $3,
+             original_monto = COALESCE(original_monto, monto_usd)
+           WHERE id = $4`,
           [deuda.monto_usd - restante, pago.fecha_pago, pago.referencia, deuda.id]
         );
         restante = 0;
       }
     }
 
+    // 5. Si sobra, actualizar saldo a favor
     if (restante > 0) {
-      const p2 = placeholder(2);
-      const p3 = placeholder(3);
-      await client.query(`UPDATE propietarios SET saldo_favor = saldo_favor + ${p2} WHERE id = ${p3}`, [restante, pago.propietario_id]);
+      await client.query(
+        `UPDATE propietarios SET saldo_favor = saldo_favor + $1 WHERE id = $2`,
+        [restante, pago.propietario_id]
+      );
     }
 
-    const p2 = placeholder(2);
-    const p3 = placeholder(3);
+    // 6. Marcar pago como verificado
     await client.query(
-      `UPDATE pagos SET estado = ${p2}, fecha_verificacion = NOW(), monto_usd = ${p3} WHERE id = ${p1}`,
-      ['verificado', montoUSD, pagoId]
+      `UPDATE pagos SET 
+         estado = 'verificado',
+         fecha_verificacion = NOW(),
+         monto_usd = $1
+       WHERE id = $2`,
+      [montoUSD, pagoId]
     );
 
     if (client.commit) await client.commit();
@@ -919,49 +930,48 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
   } catch (err) {
     if (client.rollback) await client.rollback();
     else await client.query('ROLLBACK');
-    console.error('[VERIFICAR] Error:', err.message);
+    console.error('[VERIFICAR] Error:', err);
     res.status(500).json({ error: err.message });
   } finally {
     if (client.release) client.release();
   }
 });
 
+// ==================== REVERTIR PAGO (CORREGIDO) ====================
 app.post('/api/pagos/:id/revertir', authenticateToken, authorizeMaster, async (req, res) => {
-  const pagoId = parseInt(req.params.id); // <-- conversión
+  const pagoId = parseInt(req.params.id);
   const client = await pool.getConnection ? await pool.getConnection() : await pool.connect();
   try {
     if (client.beginTransaction) await client.beginTransaction();
     else await client.query('BEGIN');
 
-    const p1 = placeholder(1);
-    const pagoResult = await client.query(`SELECT * FROM pagos WHERE id = ${p1}`, [pagoId]);
+    const pagoResult = await client.query(`SELECT * FROM pagos WHERE id = $1`, [pagoId]);
     const pago = pagoResult.rows ? pagoResult.rows[0] : pagoResult[0];
 
     if (!pago || pago.estado !== 'verificado') throw new Error('No se puede revertir');
 
-    const p2 = placeholder(2);
-    const p3 = placeholder(3);
-    const p4 = placeholder(4);
     const deudasResult = await client.query(
-      `SELECT id, monto_usd, original_monto FROM deudas WHERE propietario_id = ${p2} AND fecha_pago = ${p3} AND referencia_pago = ${p4}`,
+      `SELECT id, monto_usd, original_monto FROM deudas WHERE propietario_id = $1 AND fecha_pago = $2 AND referencia_pago = $3`,
       [pago.propietario_id, pago.fecha_pago, pago.referencia]
     );
-    const deudasRows = deudasResult.rows || deudasResult;
+    const deudas = deudasResult.rows || deudasResult;
 
-    for (const deuda of deudasRows) {
+    for (const deuda of deudas) {
       const montoRest = deuda.original_monto || deuda.monto_usd;
-      const p5 = placeholder(5);
-      const p6 = placeholder(6);
       await client.query(
-        `UPDATE deudas SET pagado = ${DB_TYPE === 'postgresql' ? 'false' : '0'}, monto_usd = ${p5}, fecha_pago = NULL, referencia_pago = NULL, original_monto = NULL WHERE id = ${p6}`,
+        `UPDATE deudas SET pagado = false, monto_usd = $1, fecha_pago = NULL, referencia_pago = NULL, original_monto = NULL WHERE id = $2`,
         [montoRest, deuda.id]
       );
     }
 
-    const p5 = placeholder(5);
-    const p6 = placeholder(6);
-    await client.query(`UPDATE propietarios SET saldo_favor = saldo_favor - ${p5} WHERE id = ${p6}`, [pago.monto_usd, pago.propietario_id]);
-    await client.query(`UPDATE pagos SET estado = ${p5}, fecha_verificacion = NULL WHERE id = ${p6}`, ['pendiente', pagoId]);
+    await client.query(
+      `UPDATE propietarios SET saldo_favor = saldo_favor - $1 WHERE id = $2`,
+      [pago.monto_usd, pago.propietario_id]
+    );
+    await client.query(
+      `UPDATE pagos SET estado = 'pendiente', fecha_verificacion = NULL WHERE id = $1`,
+      [pagoId]
+    );
 
     if (client.commit) await client.commit();
     else await client.query('COMMIT');
@@ -976,61 +986,18 @@ app.post('/api/pagos/:id/revertir', authenticateToken, authorizeMaster, async (r
   }
 });
 
-app.get('/api/usuarios/existe', authenticateToken, authorizeMaster, async (req, res) => {
-  const { username } = req.query;
+// ==================== ELIMINAR PAGO (CORREGIDO) ====================
+app.delete('/api/pagos/propietario/:id', authenticateToken, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const p1 = placeholder(1);
+  const pagoResult = await db.query(`SELECT propietario_id FROM pagos WHERE id = ${p1}`, [id]);
+  const pago = pagoResult[0];
+  if (!pago) return res.status(404).json({ error: 'Pago no encontrado' });
+  if (req.user.rol !== 'master' && req.user.propietario_id != pago.propietario_id) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
   try {
-    const p1 = placeholder(1);
-    const rows = await db.query(`SELECT id FROM usuarios WHERE username = ${p1}`, [username]);
-    res.json({ exists: rows.length > 0 });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/usuarios', authenticateToken, authorizeMaster, async (req, res) => {
-  try {
-    const rows = await db.query(`
-      SELECT u.id, u.username, u.rol, u.propietario_id,
-             p.nombre as propietario_nombre, p.apartamento
-      FROM usuarios u LEFT JOIN propietarios p ON u.propietario_id = p.id ORDER BY u.id
-    `);
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.put('/api/usuarios/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
-  const { username, password } = req.body;
-  try {
-    if (username && username.trim()) {
-      const p1 = placeholder(1);
-      const p2 = placeholder(2);
-      const rows = await db.query(`SELECT id FROM usuarios WHERE username = ${p1} AND id != ${p2}`, [username, id]);
-      if (rows.length > 0) return res.status(400).json({ error: 'Username ya existe' });
-
-      if (password) {
-        const hash = bcrypt.hashSync(password, 10);
-        const p3 = placeholder(3);
-        await db.execute(`UPDATE usuarios SET username = ${p1}, password = ${p3} WHERE id = ${p2}`, [username, hash, id]);
-      } else {
-        await db.execute(`UPDATE usuarios SET username = ${p1} WHERE id = ${p2}`, [username, id]);
-      }
-    } else if (password) {
-      const hash = bcrypt.hashSync(password, 10);
-      const p1 = placeholder(1);
-      const p2 = placeholder(2);
-      await db.execute(`UPDATE usuarios SET password = ${p1} WHERE id = ${p2}`, [hash, id]);
-    }
-    res.json({ changes: 1 });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/api/usuarios/:id', authenticateToken, authorizeMaster, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
-  try {
-    const p1 = placeholder(1);
-    const rows = await db.query(`SELECT username FROM usuarios WHERE id = ${p1}`, [id]);
-    if (rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
-    if (rows[0].username === 'admin') return res.status(403).json({ error: 'No se puede eliminar admin' });
-    const result = await db.execute(`DELETE FROM usuarios WHERE id = ${p1}`, [id]);
+    const result = await db.execute(`DELETE FROM pagos WHERE id = ${p1}`, [id]);
     res.json({ changes: result.rowCount || result.affectedRows || 0 });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1038,7 +1005,7 @@ app.delete('/api/usuarios/:id', authenticateToken, authorizeMaster, async (req, 
 // ---------- RUTAS PARA PROPIETARIOS ----------
 
 app.get('/api/propietarios/:id/deudas', authenticateToken, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   if (req.user.rol !== 'master' && req.user.propietario_id != id) {
     return res.status(403).json({ error: 'No autorizado' });
   }
@@ -1050,7 +1017,7 @@ app.get('/api/propietarios/:id/deudas', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/propietarios/:id/pagos', authenticateToken, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   if (req.user.rol !== 'master' && req.user.propietario_id != id) {
     return res.status(403).json({ error: 'No autorizado' });
   }
@@ -1089,7 +1056,7 @@ app.post('/api/pagos/propietario', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/pagos/propietario/:id', authenticateToken, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
+  const id = parseInt(req.params.id);
   const { fecha_pago, monto_bs, tasa_bcv, referencia, banco } = req.body;
   const p1 = placeholder(1);
   const pagoResult = await db.query(`SELECT propietario_id FROM pagos WHERE id = ${p1}`, [id]);
@@ -1111,21 +1078,6 @@ app.put('/api/pagos/propietario/:id', authenticateToken, async (req, res) => {
       `UPDATE pagos SET fecha_pago = ${p2}, monto_bs = ${p3}, tasa_bcv = ${p4}, monto_usd = ${p5}, referencia = ${p6}, banco = ${p7} WHERE id = ${p1}`,
       params
     );
-    res.json({ changes: result.rowCount || result.affectedRows || 0 });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/api/pagos/propietario/:id', authenticateToken, async (req, res) => {
-  const id = parseInt(req.params.id); // <-- conversión
-  const p1 = placeholder(1);
-  const pagoResult = await db.query(`SELECT propietario_id FROM pagos WHERE id = ${p1}`, [id]);
-  const pago = pagoResult[0];
-  if (!pago) return res.status(404).json({ error: 'Pago no encontrado' });
-  if (req.user.rol !== 'master' && req.user.propietario_id != pago.propietario_id) {
-    return res.status(403).json({ error: 'No autorizado' });
-  }
-  try {
-    const result = await db.execute(`DELETE FROM pagos WHERE id = ${p1}`, [id]);
     res.json({ changes: result.rowCount || result.affectedRows || 0 });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
