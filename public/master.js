@@ -1,4 +1,4 @@
-// public/master.js - Completo con ajustes globales y específicos, pagos verificados por propietario
+// public/master.js - Completo con pagos verificados por propietario y confirmaciones
 console.log('🖥️ Master UI cargada');
 
 const API_BASE = '/api';
@@ -74,6 +74,7 @@ const api = {
   getPagosPendientes: () => fetchAPI('/pagos/pendientes'),
   verificarPago: (pagoId) => fetchAPI(`/pagos/${pagoId}/verificar`, 'POST'),
   getPagosByPropietario: (propId) => fetchAPI(`/propietarios/${propId}/pagos`),
+  deletePagoPropietario: (pagoId) => fetchAPI(`/pagos/propietario/${pagoId}`, 'DELETE'),
   getTasaBCV: () => fetchAPI('/tasa-bcv')
 };
 
@@ -115,7 +116,6 @@ function actualizarUSDEnGastosEspecificos() {
   });
 }
 
-// esta funcion es agregar una fila de gasto general ///
 function agregarFilaGasto(descripcion = '', montoVES = 0) {
   const container = document.getElementById('gastosContainer');
   if (!container) return;
@@ -1117,24 +1117,67 @@ async function cargarPagosPendientes() {
     tbody.innerHTML = '';
     pagos.forEach(p => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${p.propietario_nombre} (${p.apartamento})</td>
+      tr.innerHTML = `
+        <td>${p.propietario_nombre} (${p.apartamento})</td>
         <td>${formatearFecha(p.fecha_pago)}</td>
         <td>${p.banco || '—'}</td>
-        <td>${(p.monto_bs||0).toFixed(2)}</td>
-        <td>${p.referencia||'—'}</td>
-        <td>${(p.tasa_bcv||0).toFixed(2)}</td>
-        <td><button class="btn-verificar" onclick="verificarPago(${p.id})">Verificar</button></td>`;
+        <td>${(p.monto_bs || 0).toFixed(2)}</td>
+        <td>${p.referencia || '—'}</td>
+        <td>${(p.tasa_bcv || 0).toFixed(2)}</td>
+        <td>
+          <button class="btn-verificar" onclick="verificarPago(${p.id})">Verificar</button>
+          <button class="btn-eliminar" onclick="eliminarPagoPendiente(${p.id})" style="background-color:#dc3545; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-left:5px;">Eliminar</button>
+        </td>
+      `;
       tbody.appendChild(tr);
     });
-  } catch (e) { 
+  } catch (e) {
     tbody.innerHTML = `<td colspan="7">Error: ${e.message}</td>`;
   }
 }
+
 window.verificarPago = async (id) => {
-  await api.verificarPago(id);
-  alert('Pago verificado');
-  cargarPagosPendientes();
-  if (propiedadSeleccionada) cargarPagosVerificados(propiedadSeleccionada);
+  let mensaje = '¿Está seguro de VERIFICAR este pago?';
+  try {
+    const pagos = await api.getPagosPendientes();
+    const pago = pagos.find(p => p.id === id);
+    if (pago) {
+      mensaje = `¿Está seguro de VERIFICAR el pago de ${pago.propietario_nombre} (${pago.apartamento}) por ${pago.monto_bs.toFixed(2)} Bs?`;
+    }
+  } catch (e) {}
+
+  if (!confirm(mensaje)) return;
+
+  try {
+    await api.verificarPago(id);
+    alert('Pago verificado');
+    cargarPagosPendientes();
+    if (propiedadSeleccionada) cargarPagosVerificados(propiedadSeleccionada);
+  } catch (err) {
+    alert('Error al verificar: ' + err.message);
+  }
+};
+
+window.eliminarPagoPendiente = async (pagoId) => {
+  let mensaje = '¿Está seguro de ELIMINAR este pago? Esta acción no se puede deshacer.';
+  try {
+    const pagos = await api.getPagosPendientes();
+    const pago = pagos.find(p => p.id === pagoId);
+    if (pago) {
+      mensaje = `¿Está seguro de ELIMINAR el pago de ${pago.propietario_nombre} (${pago.apartamento}) por ${pago.monto_bs.toFixed(2)} Bs? El propietario tendrá que volver a reportarlo.`;
+    }
+  } catch (e) {}
+
+  if (!confirm(mensaje)) return;
+
+  try {
+    await api.deletePagoPropietario(pagoId);
+    alert('Pago eliminado correctamente.');
+    cargarPagosPendientes();
+    if (propiedadSeleccionada) cargarPagosVerificados(propiedadSeleccionada);
+  } catch (err) {
+    alert('Error al eliminar pago: ' + err.message);
+  }
 };
 
 // ==================== CONFIGURACIÓN PREDETERMINADA ====================
