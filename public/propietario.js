@@ -1,5 +1,5 @@
 // public/propietario.js - Panel del propietario con detalle de recibos y comprobantes
-// Corregido: parseo seguro de campos JSON + campo banco + formateo automático de monto
+// Corregido: parseo seguro de campos JSON + campo banco + formateo automático de monto + fechas sin desfase
 
 console.log('Panel de propietario cargado');
 
@@ -9,12 +9,15 @@ const API_BASE = '/api';
 // ---------- Función helper para formatear fechas ----------
 function formatearFecha(fechaString) {
   if (!fechaString) return '—';
+  // Si viene en formato ISO (YYYY-MM-DD), la tratamos como fecha local
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fechaString)) {
+    const [year, month, day] = fechaString.split('-').map(Number);
+    const fecha = new Date(year, month - 1, day);
+    return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  }
+  // Para otros formatos, intentar parseo normal
   const fecha = new Date(fechaString);
-  return fecha.toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
+  return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
 // ---------- Función para parsear campos JSON que pueden venir como string ----------
@@ -550,8 +553,11 @@ async function cargarTasaBCV() {
 
 function resetFormPago() {
   document.getElementById('pagoId').value = '';
-  const hoy = new Date().toISOString().split('T')[0];
-  document.getElementById('fechaPago').value = hoy;
+  const hoy = new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, '0');
+  const day = String(hoy.getDate()).padStart(2, '0');
+  document.getElementById('fechaPago').value = `${year}-${month}-${day}`;
   document.getElementById('bancoPago').value = '';
   document.getElementById('montoPago').value = '';
   document.getElementById('referenciaPago').value = '';
