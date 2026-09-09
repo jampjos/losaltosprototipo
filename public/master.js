@@ -1,4 +1,4 @@
-// public/master.js - Completo con ajustes globales y específicos respaldo
+// public/master.js - Completo con ajustes globales y específicos, pagos verificados por propietario
 console.log('🖥️ Master UI cargada');
 
 const API_BASE = '/api';
@@ -73,6 +73,7 @@ const api = {
   deleteDeuda: (id) => fetchAPI(`/deudas/${id}`, 'DELETE'),
   getPagosPendientes: () => fetchAPI('/pagos/pendientes'),
   verificarPago: (pagoId) => fetchAPI(`/pagos/${pagoId}/verificar`, 'POST'),
+  getPagosByPropietario: (propId) => fetchAPI(`/propietarios/${propId}/pagos`),
   getTasaBCV: () => fetchAPI('/tasa-bcv')
 };
 
@@ -162,8 +163,6 @@ function calcularTotalGastos() {
 }
 
 // ==================== AJUSTES GLOBALES ====================
-
-// esta funcion es agregar una fila de ajuste global (crédito/reverso) ///
 function agregarFilaAjuste(tipo = 'credito', descripcion = '', montoUSD = 0) {
   const container = document.getElementById('ajustesContainer');
   if (!container) return;
@@ -205,7 +204,6 @@ function agregarFilaAjuste(tipo = 'credito', descripcion = '', montoUSD = 0) {
   container.appendChild(row);
 }
 
-// esta funcion es calcular el neto a distribuir (gastos + ajustes globales) ///
 function calcularNetoTotal() {
   const totalGastos = parseFloat(document.getElementById('totalGastosUSD')?.innerText) || 0;
   let totalAjustes = 0;
@@ -654,7 +652,7 @@ document.getElementById('formRecibo')?.addEventListener('submit', async (e) => {
     editandoReciboId = null;
     document.getElementById('modalRecibo').style.display = 'none';
     cargarRecibos();
-    if (propiedadSeleccionada) cargarDeudas(propiedadSeleccionada);
+    if (propiedadSeleccionada) cargarPagosVerificados(propiedadSeleccionada);
     cargarPagosPendientes();
   } catch (err) {
     alert('Error: ' + err.message);
@@ -984,7 +982,7 @@ async function cargarRecibos() {
 window.verRecibo = verRecibo;
 window.cargarYEditarRecibo = cargarYEditarRecibo;
 
-// ==================== DEUDAS POR PROPIEDAD ====================
+// ==================== PAGOS VERIFICADOS POR PROPIEDAD ====================
 async function cargarGruposParaDeudas() {
   const container = document.getElementById('gruposContainer');
   if (!container) return;
@@ -1030,7 +1028,7 @@ async function cargarPropiedadesDeuda(grupoId) {
   const filtrados = grupoId === null ? todos.filter(p => p.grupo_id === null) : todos.filter(p => p.grupo_id === grupoId);
   if (!filtrados.length) {
     container.innerHTML = '<p>No hay propiedades en este grupo.</p>';
-    document.getElementById('deudasTableContainer').style.display = 'none';
+    document.getElementById('pagosTableContainer').style.display = 'none';
     return;
   }
   for (let i = 0; i < filtrados.length; i += 4) {
@@ -1060,32 +1058,40 @@ async function seleccionarPropiedadDeuda(propId) {
   document.querySelectorAll('#propiedadesContainer button').forEach(b => {
     b.style.backgroundColor = b.textContent === propietarios.find(p => p.id === propId)?.apartamento ? '#007bff' : '#6c757d';
   });
-  await cargarDeudas(propId);
+  await cargarPagosVerificados(propId);
   await actualizarSaldoPropietario(propId);
-  document.getElementById('deudasTableContainer').style.display = 'block';
+  document.getElementById('pagosTableContainer').style.display = 'block';
 }
 
-async function cargarDeudas(propId) {
-  const tbody = document.querySelector('#tablaDeudas tbody');
+async function cargarPagosVerificados(propId) {
+  const tbody = document.querySelector('#tablaPagosPropietario tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<td colspan="6">Cargando...</td>';
+  tbody.innerHTML = '<td colspan="8">Cargando pagos...</td>';
   try {
-    const deudas = await api.getDeudasByPropietario(propId);
-    deudasGlobal = deudas;
+    const pagos = await api.getPagosByPropietario(propId);
+    const pagosVerificados = pagos.filter(p => p.estado === 'verificado');
     tbody.innerHTML = '';
-    if (!deudas.length) {
-      tbody.innerHTML = '<td colspan="6">No hay deudas registradas.</td>';
+    if (!pagosVerificados.length) {
+      tbody.innerHTML = '<td colspan="8">No hay pagos verificados para esta propiedad.</td>';
       return;
     }
-    deudas.forEach(d => {
+    pagosVerificados.forEach(p => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${d.periodo}</td><td>$${d.monto_usd.toFixed(2)}</td>
-        <td>${formatearFecha(d.fecha_vencimiento)}</td>
-        <td class="${d.pagado ? 'verificado' : 'pendiente'}">${d.pagado ? 'Pagada' : 'Pendiente'}</td>
-        <td>${formatearFecha(d.fecha_pago)}</td><td>${d.referencia_pago || '—'}</td>`;
+      tr.innerHTML = `
+        <td>${formatearFecha(p.fecha_pago)}</td>
+        <td>${p.banco || '—'}</td>
+        <td>${(p.monto_bs || 0).toFixed(2)}</td>
+        <td>${(p.tasa_bcv || 0).toFixed(2)}</td>
+        <td>$${(p.monto_usd || 0).toFixed(2)}</td>
+        <td>${p.referencia || '—'}</td>
+        <td class="verificado">${p.estado}</td>
+        <td>${formatearFecha(p.fecha_verificacion)}</td>
+      `;
       tbody.appendChild(tr);
     });
-  } catch (e) { tbody.innerHTML = `<td colspan="6">Error: ${e.message}</td>`; }
+  } catch (e) {
+    tbody.innerHTML = `<td colspan="8">Error: ${e.message}</td>`;
+  }
 }
 
 async function actualizarSaldoPropietario(propId) {
@@ -1101,37 +1107,11 @@ async function actualizarSaldoPropietario(propId) {
   }
 }
 
-// Modal deuda (agregar manual)
-const modalDeuda = document.getElementById('modalDeuda');
-document.getElementById('btnAgregarDeuda').addEventListener('click', async () => {
-  if (!propiedadSeleccionada) return alert('Seleccione una propiedad primero');
-  const props = await api.getPropietarios();
-  document.getElementById('propietarioSelect').innerHTML = '<option value="">Seleccionar</option>' +
-    props.map(p => `<option value="${p.id}" ${p.id===propiedadSeleccionada?'selected':''}>${p.nombre} (${p.apartamento})</option>`).join('');
-  document.getElementById('periodo').value = '';
-  document.getElementById('montoUSD').value = '';
-  document.getElementById('fechaVencimiento').value = '';
-  modalDeuda.style.display = 'block';
-});
-document.querySelector('#modalDeuda .close').addEventListener('click', () => modalDeuda.style.display = 'none');
-window.addEventListener('click', e => { if (e.target === modalDeuda) modalDeuda.style.display = 'none'; });
-document.getElementById('formDeuda').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const prop_id = +document.getElementById('propietarioSelect').value;
-  const periodo = document.getElementById('periodo').value;
-  const monto = parseFloat(document.getElementById('montoUSD').value);
-  const venc = document.getElementById('fechaVencimiento').value || null;
-  if (!prop_id || !periodo || isNaN(monto) || monto <= 0) return alert('Datos inválidos');
-  await api.addDeuda({ propietario_id: prop_id, periodo, monto_usd: monto, fecha_vencimiento: venc });
-  modalDeuda.style.display = 'none';
-  if (propiedadSeleccionada === prop_id) cargarDeudas(prop_id);
-});
-
 // ==================== PAGOS PENDIENTES ====================
 async function cargarPagosPendientes() {
   const tbody = document.querySelector('#tablaPagos tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<td colspan="7">Cargando...</td>'; // Cambiado de 6 a 7
+  tbody.innerHTML = '<td colspan="7">Cargando...</td>';
   try {
     const pagos = await api.getPagosPendientes();
     tbody.innerHTML = '';
@@ -1147,8 +1127,14 @@ async function cargarPagosPendientes() {
       tbody.appendChild(tr);
     });
   } catch (e) { 
-    tbody.innerHTML = `<td colspan="7">Error: ${e.message}</td>`; // Cambiado de 6 a 7
+    tbody.innerHTML = `<td colspan="7">Error: ${e.message}</td>`;
   }
+}
+window.verificarPago = async (id) => {
+  await api.verificarPago(id);
+  alert('Pago verificado');
+  cargarPagosPendientes();
+  if (propiedadSeleccionada) cargarPagosVerificados(propiedadSeleccionada);
 };
 
 // ==================== CONFIGURACIÓN PREDETERMINADA ====================
