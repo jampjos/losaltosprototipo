@@ -1131,25 +1131,24 @@ document.getElementById('formDeuda').addEventListener('submit', async (e) => {
 async function cargarPagosPendientes() {
   const tbody = document.querySelector('#tablaPagos tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<td colspan="6">Cargando...</td>';
+  tbody.innerHTML = '<td colspan="7">Cargando...</td>'; // Cambiado de 6 a 7
   try {
     const pagos = await api.getPagosPendientes();
     tbody.innerHTML = '';
     pagos.forEach(p => {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${p.propietario_nombre} (${p.apartamento})</td>
-        <td>${formatearFecha(p.fecha_pago)}</td><td>${(p.monto_bs||0).toFixed(2)}</td>
-        <td>${p.referencia||'—'}</td><td>${(p.tasa_bcv||0).toFixed(2)}</td>
+        <td>${formatearFecha(p.fecha_pago)}</td>
+        <td>${p.banco || '—'}</td>
+        <td>${(p.monto_bs||0).toFixed(2)}</td>
+        <td>${p.referencia||'—'}</td>
+        <td>${(p.tasa_bcv||0).toFixed(2)}</td>
         <td><button class="btn-verificar" onclick="verificarPago(${p.id})">Verificar</button></td>`;
       tbody.appendChild(tr);
     });
-  } catch (e) { tbody.innerHTML = `<td colspan="6">Error: ${e.message}</td>`; }
-}
-window.verificarPago = async (id) => {
-  await api.verificarPago(id);
-  alert('Pago verificado');
-  cargarPagosPendientes();
-  if (propiedadSeleccionada) cargarDeudas(propiedadSeleccionada);
+  } catch (e) { 
+    tbody.innerHTML = `<td colspan="7">Error: ${e.message}</td>`; // Cambiado de 6 a 7
+  }
 };
 
 // ==================== CONFIGURACIÓN PREDETERMINADA ====================
