@@ -980,6 +980,7 @@ async function seleccionarPropiedadDeuda(propId) {
   document.getElementById('pagosTableContainer').style.display = 'block';
 }
 
+// ==================== PAGOS VERIFICADOS (FECHAS DIRECTAS) ====================
 async function cargarPagosVerificados(propId) {
   const tbody = document.querySelector('#tablaPagosPropietario tbody');
   if (!tbody) return;
@@ -995,14 +996,14 @@ async function cargarPagosVerificados(propId) {
     pagosVerificados.forEach(p => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${formatearFecha(p.fecha_pago)}</td>
+        <td>${p.fecha_pago || '—'}</td>
         <td>${p.banco || '—'}</td>
         <td>${(p.monto_bs || 0).toFixed(2)}</td>
         <td>${(p.tasa_bcv || 0).toFixed(2)}</td>
         <td>$${(p.monto_usd || 0).toFixed(2)}</td>
         <td>${p.referencia || '—'}</td>
         <td class="verificado">${p.estado}</td>
-        <td>${formatearFecha(p.fecha_verificacion)}</td>
+        <td>${p.fecha_verificacion || '—'}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -1024,7 +1025,7 @@ async function actualizarSaldoPropietario(propId) {
   }
 }
 
-// ==================== PAGOS PENDIENTES ====================
+// ==================== PAGOS PENDIENTES (FECHAS DIRECTAS) ====================
 async function cargarPagosPendientes() {
   const tbody = document.querySelector('#tablaPagos tbody');
   if (!tbody) return;
@@ -1036,7 +1037,7 @@ async function cargarPagosPendientes() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${p.propietario_nombre} (${p.apartamento})</td>
-        <td>${formatearFecha(p.fecha_pago)}</td>
+        <td>${p.fecha_pago || '—'}</td>
         <td>${p.banco || '—'}</td>
         <td>${(p.monto_bs || 0).toFixed(2)}</td>
         <td>${p.referencia || '—'}</td>
