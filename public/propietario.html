@@ -4,11 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mi Cuenta - Propietario</title>
-  <link rel="stylesheet" href="styles.css">
   <style>
-    /* (estilos igual que antes) */
     * {
       box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
     }
     .container {
       max-width: 1200px;
@@ -63,10 +67,15 @@
       border-radius: 5px;
       margin-bottom: 20px;
     }
+    h2 {
+      color: #333;
+      margin-top: 30px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 20px;
+      background: white;
     }
     th, td {
       border: 1px solid #ddd;
@@ -88,6 +97,10 @@
       background-color: #007bff;
       color: white;
       margin-bottom: 10px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
     }
     .btn-editar, .btn-eliminar {
       padding: 4px 8px;
@@ -140,11 +153,16 @@
       font-weight: bold;
       margin-bottom: 5px;
     }
-    .form-group input {
+    .form-group input,
+    .form-group select {
       width: 100%;
       padding: 8px;
       border: 1px solid #ccc;
       border-radius: 4px;
+      font-size: 14px;
+    }
+    .form-group select {
+      background-color: white;
     }
     .tasa-info {
       background: #e7f3ff;
@@ -156,6 +174,27 @@
       display: flex;
       gap: 5px;
     }
+    button[type="submit"] {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button[type="submit"]:hover {
+      background-color: #0056b3;
+    }
+    #btnRecargar {
+      background-color: #17a2b8;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -166,6 +205,7 @@
     </div>
     <button id="logout" class="btn-header">Cerrar sesión</button>
   </header>
+  
   <div class="container">
     <div class="info-box">
       <p><strong>Apartamento:</strong> <span id="propietarioApartamento">---</span></p>
@@ -175,7 +215,7 @@
     </div>
 
     <h2>Deudas Pendientes</h2>
-    <button id="btnRecargar" style="background-color: #17a2b8; margin-bottom: 10px;">Recargar Datos</button>
+    <button id="btnRecargar">Recargar Datos</button>
     <table id="tablaDeudas">
       <thead>
         <tr>
@@ -195,6 +235,7 @@
       <thead>
         <tr>
           <th>Fecha Pago</th>
+          <th>Banco</th>
           <th>Monto (Bs)</th>
           <th>Tasa BCV</th>
           <th>Monto (USD)</th>
@@ -235,23 +276,37 @@
       <div id="tasaActual" class="tasa-info">Cargando tasa BCV...</div>
       <form id="formPago">
         <input type="hidden" id="pagoId" value="">
+        
         <div class="form-group">
           <label>Fecha de Pago:</label>
           <input type="date" id="fechaPago" required>
         </div>
+        
+        <div class="form-group">
+          <label>Banco:</label>
+          <select id="bancoPago" required>
+            <option value="">Seleccione un banco</option>
+            <option value="Banco Mercantil">Banco Mercantil</option>
+            <option value="Bancaribe">Bancaribe</option>
+          </select>
+        </div>
+        
         <div class="form-group">
           <label>Monto en Bolívares (Bs):</label>
           <input type="number" step="0.01" id="montoPago" required>
         </div>
+        
         <div class="form-group">
           <label>Tasa BCV (Bs/USD):</label>
           <input type="number" step="0.01" id="tasaPago" required>
           <small>Si la tasa no se cargó automáticamente, ingrésala manualmente.</small>
         </div>
+        
         <div class="form-group">
           <label>Número de Referencia:</label>
           <input type="text" id="referenciaPago" required>
         </div>
+        
         <button type="submit">Guardar</button>
       </form>
     </div>
