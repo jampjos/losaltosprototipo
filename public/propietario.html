@@ -88,6 +88,10 @@
       background-color: #007bff;
       color: white;
       margin-bottom: 10px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
     }
     .btn-editar, .btn-eliminar {
       padding: 4px 8px;
@@ -146,9 +150,16 @@
       padding: 8px;
       border: 1px solid #ccc;
       border-radius: 4px;
+      font-size: 14px;
     }
     .form-group select {
       background-color: white;
+    }
+    .form-group small {
+      color: #666;
+      font-size: 12px;
+      display: block;
+      margin-top: 5px;
     }
     .tasa-info {
       background: #e7f3ff;
@@ -160,6 +171,19 @@
       display: flex;
       gap: 5px;
     }
+    button[type="submit"] {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+    }
+    button[type="submit"]:hover {
+      background-color: #0056b3;
+    }
   </style>
 </head>
 <body>
@@ -170,6 +194,7 @@
     </div>
     <button id="logout" class="btn-header">Cerrar sesión</button>
   </header>
+  
   <div class="container">
     <div class="info-box">
       <p><strong>Apartamento:</strong> <span id="propietarioApartamento">---</span></p>
@@ -179,7 +204,7 @@
     </div>
 
     <h2>Deudas Pendientes</h2>
-    <button id="btnRecargar" style="background-color: #17a2b8; margin-bottom: 10px;">Recargar Datos</button>
+    <button id="btnRecargar" style="background-color: #17a2b8; margin-bottom: 10px; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;">Recargar Datos</button>
     <table id="tablaDeudas">
       <thead>
         <tr>
@@ -257,7 +282,8 @@
         
         <div class="form-group">
           <label>Monto en Bolívares (Bs):</label>
-          <input type="number" step="0.01" id="montoPago" required>
+          <input type="text" id="montoPago" inputmode="decimal" placeholder="0.00" required>
+          <small>Escriba el monto sin coma. Ej: 100 = 1.00, 15015 = 150.15</small>
         </div>
         
         <div class="form-group">
