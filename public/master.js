@@ -1,4 +1,4 @@
-// public/master.js - Panel Master con pagos verificados, confirmaciones y fechas corregidas
+// public/master.js - Panel Master con pagos verificados, confirmaciones y edición de tasa
 console.log('🖥️ Master UI cargada');
 
 const API_BASE = '/api';
@@ -6,7 +6,6 @@ const API_BASE = '/api';
 // ---------- Variables globales ----------
 let grupos = [];
 let propietarios = [];
-let deudasGlobal = [];
 let recibos = [];
 let grupoSeleccionado = null;
 let propiedadSeleccionada = null;
@@ -20,12 +19,10 @@ let alicuotasPredeterminadas = [];
 // ---------- Helpers ----------
 function formatearFecha(fechaString) {
   if (!fechaString) return '—';
-  // Si viene como YYYY-MM-DD, la formateamos manualmente sin usar Date
   if (/^\d{4}-\d{2}-\d{2}$/.test(fechaString)) {
     const [year, month, day] = fechaString.split('-');
     return `${day}/${month}/${year}`;
   }
-  // Para otros formatos (timestamps con hora)
   const fecha = new Date(fechaString);
   if (isNaN(fecha)) return '—';
   return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -80,6 +77,7 @@ const api = {
   verificarPago: (pagoId) => fetchAPI(`/pagos/${pagoId}/verificar`, 'POST'),
   getPagosByPropietario: (propId) => fetchAPI(`/propietarios/${propId}/pagos`),
   deletePagoPropietario: (pagoId) => fetchAPI(`/pagos/propietario/${pagoId}`, 'DELETE'),
+  updateTasaPago: (pagoId, tasa) => fetchAPI(`/pagos/${pagoId}/tasa`, 'PUT', { tasa_bcv: tasa }),
   getTasaBCV: () => fetchAPI('/tasa-bcv')
 };
 
@@ -1025,34 +1023,67 @@ async function actualizarSaldoPropietario(propId) {
   }
 }
 
-// ==================== PAGOS PENDIENTES (FECHAS DIRECTAS) ====================
+// ==================== PAGOS PENDIENTES ====================
 async function cargarPagosPendientes() {
   const tbody = document.querySelector('#tablaPagos tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<td colspan="7">Cargando...</td>';
+  tbody.innerHTML = '<td colspan="8">Cargando...</td>';
   try {
     const pagos = await api.getPagosPendientes();
     tbody.innerHTML = '';
     pagos.forEach(p => {
+      const montoUSD = p.monto_usd ? p.monto_usd.toFixed(2) : (p.monto_bs / p.tasa_bcv).toFixed(2);
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${p.propietario_nombre} (${p.apartamento})</td>
         <td>${p.fecha_pago || '—'}</td>
         <td>${p.banco || '—'}</td>
-        <td>${(p.monto_bs || 0).toFixed(2)}</td>
+        <td>${p.monto_bs.toFixed(2)}</td>
+        <td>$${montoUSD}</td>
         <td>${p.referencia || '—'}</td>
-        <td>${(p.tasa_bcv || 0).toFixed(2)}</td>
+        <td>${p.tasa_bcv.toFixed(2)}</td>
         <td>
           <button class="btn-verificar" onclick="verificarPago(${p.id})">Verificar</button>
+          <button class="btn-editar-tasa" onclick="editarTasaPago(${p.id})">Editar tasa</button>
           <button class="btn-eliminar" onclick="eliminarPagoPendiente(${p.id})">Eliminar</button>
         </td>
       `;
       tbody.appendChild(tr);
     });
   } catch (e) {
-    tbody.innerHTML = `<td colspan="7">Error: ${e.message}</td>`;
+    tbody.innerHTML = `<td colspan="8">Error: ${e.message}</td>`;
   }
 }
+
+// Función para editar tasa de pago pendiente
+window.editarTasaPago = async (pagoId) => {
+  const pagos = await api.getPagosPendientes();
+  const pago = pagos.find(p => p.id === pagoId);
+  if (!pago) return alert('Pago no encontrado');
+
+  const nuevaTasa = prompt(
+    `Ingrese la tasa BCV correcta para el pago de ${pago.propietario_nombre} (${pago.apartamento}).\n` +
+    `Monto en Bs: ${pago.monto_bs.toFixed(2)}\n` +
+    `Tasa actual: ${pago.tasa_bcv.toFixed(2)}\n` +
+    `Equivalente actual en USD: $${(pago.monto_bs / pago.tasa_bcv).toFixed(2)}`,
+    pago.tasa_bcv.toFixed(2)
+  );
+
+  if (nuevaTasa === null) return;
+  const tasa = parseFloat(nuevaTasa);
+  if (isNaN(tasa) || tasa <= 0) {
+    alert('Tasa inválida');
+    return;
+  }
+
+  try {
+    await api.updateTasaPago(pagoId, tasa);
+    alert('✅ Tasa actualizada correctamente');
+    cargarPagosPendientes(); // Refrescar la tabla
+  } catch (err) {
+    alert('Error al actualizar tasa: ' + err.message);
+  }
+};
 
 window.verificarPago = async (id) => {
   let mensaje = '¿Está seguro de VERIFICAR este pago?';
