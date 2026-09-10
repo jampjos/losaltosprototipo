@@ -860,6 +860,36 @@ app.get('/api/pagos/pendientes', authenticateToken, authorizeMaster, async (req,
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==================== EDITAR TASA DE PAGO PENDIENTE ====================
+app.put('/api/pagos/:id/tasa', authenticateToken, authorizeMaster, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { tasa_bcv } = req.body;
+
+  if (!tasa_bcv || isNaN(tasa_bcv) || tasa_bcv <= 0) {
+    return res.status(400).json({ error: 'Tasa inválida' });
+  }
+
+  try {
+    const pagoResult = await db.query(`SELECT * FROM pagos WHERE id = $1`, [id]);
+    const pago = pagoResult[0];
+    if (!pago) return res.status(404).json({ error: 'Pago no encontrado' });
+    if (pago.estado !== 'pendiente') {
+      return res.status(400).json({ error: 'Solo se puede editar la tasa de pagos pendientes' });
+    }
+
+    const monto_usd = pago.monto_bs / tasa_bcv;
+
+    await db.execute(
+      `UPDATE pagos SET tasa_bcv = $1, monto_usd = $2 WHERE id = $3`,
+      [tasa_bcv, monto_usd, id]
+    );
+
+    res.json({ changes: 1, monto_usd });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== VERIFICAR PAGO (CORREGIDO) ====================
 app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (req, res) => {
   const pagoId = parseInt(req.params.id);
@@ -868,10 +898,7 @@ app.post('/api/pagos/:id/verificar', authenticateToken, authorizeMaster, async (
     if (client.beginTransaction) await client.beginTransaction();
     else await client.query('BEGIN');
 
-    const pagoResult = await client.query(
-      `SELECT * FROM pagos WHERE id = $1`,
-      [pagoId]
-    );
+    const pagoResult = await client.query(`SELECT * FROM pagos WHERE id = $1`, [pagoId]);
     const pago = pagoResult.rows ? pagoResult.rows[0] : pagoResult[0];
     if (!pago) throw new Error('Pago no encontrado');
     if (pago.estado !== 'pendiente') throw new Error('Ya verificado');
