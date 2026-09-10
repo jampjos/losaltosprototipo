@@ -112,6 +112,18 @@
     .btn-verificar:hover {
       background-color: #218838;
     }
+    .btn-editar-tasa {
+      background-color: #ffc107;
+      color: #212529;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    .btn-editar-tasa:hover {
+      background-color: #e0a800;
+    }
     .btn-eliminar {
       background-color: #dc3545;
       color: white;
@@ -258,7 +270,7 @@
       </table>
     </section>
 
-    <!-- Sección Pagos Pendientes de Verificación -->
+    <!-- Sección Pagos Pendientes -->
     <section>
       <h2>Pagos Pendientes de Verificación</h2>
       <table id="tablaPagos">
@@ -268,6 +280,7 @@
             <th>Fecha Pago</th>
             <th>Banco</th>
             <th>Monto (Bs)</th>
+            <th>Monto (USD)</th>   <!-- Nueva columna -->
             <th>Referencia</th>
             <th>Tasa BCV</th>
             <th>Acciones</th>
