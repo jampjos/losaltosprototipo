@@ -369,7 +369,7 @@ async function setupPostgreSQL() {
   }
 }
 
-// Función helper para placeholders (solo para MariaDB)
+// Función helper para placeholders
 function placeholder(index) {
   return DB_TYPE === 'postgresql' ? `$${index}` : '?';
 }
@@ -885,6 +885,34 @@ app.put('/api/pagos/:id/tasa', authenticateToken, authorizeMaster, async (req, r
     );
 
     res.json({ changes: 1, monto_usd });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== EDITAR FECHA DE PAGO PENDIENTE ====================
+app.put('/api/pagos/:id/fecha', authenticateToken, authorizeMaster, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { fecha_pago } = req.body;
+
+  if (!fecha_pago || !/^\d{4}-\d{2}-\d{2}$/.test(fecha_pago)) {
+    return res.status(400).json({ error: 'Fecha inválida. Debe ser YYYY-MM-DD' });
+  }
+
+  try {
+    const pagoResult = await db.query(`SELECT * FROM pagos WHERE id = $1`, [id]);
+    const pago = pagoResult[0];
+    if (!pago) return res.status(404).json({ error: 'Pago no encontrado' });
+    if (pago.estado !== 'pendiente') {
+      return res.status(400).json({ error: 'Solo se puede editar la fecha de pagos pendientes' });
+    }
+
+    await db.execute(
+      `UPDATE pagos SET fecha_pago = $1 WHERE id = $2`,
+      [fecha_pago, id]
+    );
+
+    res.json({ changes: 1 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
