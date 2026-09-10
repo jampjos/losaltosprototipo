@@ -1,4 +1,4 @@
-// public/master.js - Panel Master con pagos verificados, confirmaciones y edición de tasa
+// public/master.js - Panel Master con pagos verificados, confirmaciones, edición de tasa y fecha
 console.log('🖥️ Master UI cargada');
 
 const API_BASE = '/api';
@@ -78,6 +78,7 @@ const api = {
   getPagosByPropietario: (propId) => fetchAPI(`/propietarios/${propId}/pagos`),
   deletePagoPropietario: (pagoId) => fetchAPI(`/pagos/propietario/${pagoId}`, 'DELETE'),
   updateTasaPago: (pagoId, tasa) => fetchAPI(`/pagos/${pagoId}/tasa`, 'PUT', { tasa_bcv: tasa }),
+  updateFechaPago: (pagoId, fecha) => fetchAPI(`/pagos/${pagoId}/fecha`, 'PUT', { fecha_pago: fecha }),
   getTasaBCV: () => fetchAPI('/tasa-bcv')
 };
 
@@ -1023,7 +1024,7 @@ async function actualizarSaldoPropietario(propId) {
   }
 }
 
-// ==================== PAGOS PENDIENTES ====================
+// ==================== PAGOS PENDIENTES (CON EDICIÓN DE TASA Y FECHA) ====================
 async function cargarPagosPendientes() {
   const tbody = document.querySelector('#tablaPagos tbody');
   if (!tbody) return;
@@ -1045,6 +1046,7 @@ async function cargarPagosPendientes() {
         <td>
           <button class="btn-verificar" onclick="verificarPago(${p.id})">Verificar</button>
           <button class="btn-editar-tasa" onclick="editarTasaPago(${p.id})">Editar tasa</button>
+          <button class="btn-editar-fecha" onclick="editarFechaPago(${p.id})">Editar fecha</button>
           <button class="btn-eliminar" onclick="eliminarPagoPendiente(${p.id})">Eliminar</button>
         </td>
       `;
@@ -1079,9 +1081,39 @@ window.editarTasaPago = async (pagoId) => {
   try {
     await api.updateTasaPago(pagoId, tasa);
     alert('✅ Tasa actualizada correctamente');
-    cargarPagosPendientes(); // Refrescar la tabla
+    cargarPagosPendientes();
   } catch (err) {
     alert('Error al actualizar tasa: ' + err.message);
+  }
+};
+
+// Función para editar fecha de pago pendiente
+window.editarFechaPago = async (pagoId) => {
+  const pagos = await api.getPagosPendientes();
+  const pago = pagos.find(p => p.id === pagoId);
+  if (!pago) return alert('Pago no encontrado');
+
+  const nuevaFecha = prompt(
+    `Ingrese la nueva fecha de pago (DD/MM/YYYY) para ${pago.propietario_nombre} (${pago.apartamento}).\n` +
+    `Fecha actual: ${pago.fecha_pago || '—'}`,
+    pago.fecha_pago || ''
+  );
+
+  if (nuevaFecha === null) return;
+  const partes = nuevaFecha.split('/');
+  if (partes.length !== 3 || partes[0].length !== 2 || partes[1].length !== 2 || partes[2].length !== 4) {
+    alert('Formato de fecha inválido. Use DD/MM/YYYY');
+    return;
+  }
+  const [day, month, year] = partes.map(Number);
+  const fechaISO = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  try {
+    await api.updateFechaPago(pagoId, fechaISO);
+    alert('✅ Fecha actualizada correctamente');
+    cargarPagosPendientes();
+  } catch (err) {
+    alert('Error al actualizar fecha: ' + err.message);
   }
 };
 
